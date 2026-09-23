@@ -14,13 +14,29 @@ const state = {
   currentDayDetail: null
 };
 
-/* ---------------- API helper (ใช้ GET เพื่อเลี่ยงปัญหา CORS preflight ของ Apps Script) ---------------- */
+/* ---------------- API helper (ใช้ JSONP เพื่อเลี่ยงปัญหา CORS ของ Apps Script) ---------------- */
+
+function jsonp_(action, payload) {
+  return new Promise((resolve, reject) => {
+    const callbackName = 'cb_' + Date.now() + '_' + Math.floor(Math.random() * 1e6);
+    const script = document.createElement('script');
+    const cleanup = () => { delete window[callbackName]; script.remove(); };
+    window[callbackName] = (data) => { cleanup(); resolve(data); };
+    script.onerror = () => { cleanup(); reject(new Error('network error')); };
+    const url = `${API_URL}?action=${encodeURIComponent(action)}&payload=${encodeURIComponent(JSON.stringify(payload))}&callback=${callbackName}`;
+    script.src = url;
+    document.body.appendChild(script);
+  });
+}
 
 async function api(action, payload = {}) {
   if (state.token) payload.token = state.token;
-  const url = `${API_URL}?action=${encodeURIComponent(action)}&payload=${encodeURIComponent(JSON.stringify(payload))}`;
-  const res = await fetch(url);
-  const data = await res.json();
+  let data;
+  try {
+    data = await jsonp_(action, payload);
+  } catch (e) {
+    return { ok: false, error: 'เชื่อมต่อระบบไม่สำเร็จ กรุณาลองใหม่' };
+  }
   if (!data.ok && data.error === 'กรุณาเข้าสู่ระบบใหม่') {
     logout();
   }
