@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>ระบบนัดหมายผู้ป่วย รพ.สต.</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- ---------- หน้าเข้าสู่ระบบ ---------- -->
+  <section id="loginView" class="login-screen">
+    <div class="login-card">
+      <div class="login-mark">รพ.สต.</div>
+      <h1>ระบบนัดหมายผู้ป่วย</h1>
+      <p class="login-sub">งานกายภาพบำบัด</p>
+      <form id="loginForm">
+        <label>ชื่อผู้ใช้
+          <input type="text" id="loginUsername" required autocomplete="username" />
+        </label>
+        <label>รหัสผ่าน
+          <input type="password" id="loginPassword" required autocomplete="current-password" />
+        </label>
+        <button type="submit">เข้าสู่ระบบ</button>
+        <p id="loginError" class="error-text"></p>
+      </form>
+    </div>
+  </section>
+
+  <!-- ---------- แอปหลัก ---------- -->
+  <div id="appView" class="app hidden">
+    <aside class="sidebar">
+      <div class="brand">รพ.สต. <span>นัดหมาย</span></div>
+      <nav>
+        <button class="navBtn active" data-view="calendar">ปฏิทินนัดหมาย</button>
+        <button class="navBtn physio-only" data-view="settings">ตั้งค่า</button>
+      </nav>
+      <div class="who">
+        <div class="who-name" id="whoName"></div>
+        <div class="who-role" id="whoRole"></div>
+        <button id="logoutBtn">ออกจากระบบ</button>
+      </div>
+    </aside>
+
+    <main class="content">
+      <!-- ปฏิทิน -->
+      <section id="calendarView" class="view">
+        <header class="view-head">
+          <div class="month-nav">
+            <button id="prevMonth" aria-label="เดือนก่อนหน้า">‹</button>
+            <h2 id="monthLabel"></h2>
+            <button id="nextMonth" aria-label="เดือนถัดไป">›</button>
+          </div>
+          <div class="legend">
+            <span class="legend-item"><i class="dot opd"></i>OPD</span>
+            <span class="legend-item"><i class="dot community"></i>ลงชุมชน</span>
+            <span class="legend-item"><i class="dot busy"></i>ไม่ว่าง</span>
+            <span class="legend-item"><i class="dot closed"></i>ปิดทำการ</span>
+          </div>
+        </header>
+        <div class="weekday-row">
+          <span>จ</span><span>อ</span><span>พ</span><span>พฤ</span><span>ศ</span><span>ส</span><span>อา</span>
+        </div>
+        <div id="calendarGrid" class="calendar-grid"></div>
+      </section>
+
+      <!-- ตั้งค่า (เฉพาะนักกายภาพ) -->
+      <section id="settingsView" class="view hidden">
+        <header class="view-head"><h2>ตั้งค่าเวลาให้บริการ</h2></header>
+
+        <div class="panel">
+          <h3>เวลาเปิด–ปิด รายวัน (จันทร์–ศุกร์)</h3>
+          <div id="scheduleForm" class="schedule-form"></div>
+          <button id="saveScheduleBtn" class="primary">บันทึกเวลาเปิด–ปิด</button>
+        </div>
+
+        <div class="panel">
+          <h3>วันปิดเฉพาะกิจ / วันหยุดนักขัตฤกษ์</h3>
+          <form id="closedDateForm" class="inline-form">
+            <input type="date" id="closedDateInput" required />
+            <input type="text" id="closedReasonInput" placeholder="เหตุผล เช่น วันหยุดสงกรานต์" />
+            <button type="submit">เพิ่มวันปิด</button>
+          </form>
+          <ul id="closedDateList" class="tag-list"></ul>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- ---------- แผงรายละเอียดวัน (slide-over) ---------- -->
+  <div id="dayPanelBackdrop" class="backdrop hidden"></div>
+  <aside id="dayPanel" class="day-panel hidden">
+    <header>
+      <h3 id="dayPanelTitle"></h3>
+      <button id="closeDayPanel" aria-label="ปิด">×</button>
+    </header>
+    <div id="dayPanelClosedNote" class="closed-note hidden"></div>
+
+    <div id="dayPanelBody">
+      <div class="section-label">ช่วงเวลา</div>
+      <div id="slotList" class="slot-list"></div>
+
+      <div class="section-label">นัดหมายวันนี้</div>
+      <ul id="apptList" class="appt-list"></ul>
+
+      <button id="physioBusyBtn" class="secondary physio-only">ตั้งช่วงไม่ว่าง</button>
+    </div>
+  </aside>
+
+  <!-- ---------- โมดัลเพิ่มนัดหมาย ---------- -->
+  <div id="apptModalBackdrop" class="backdrop hidden"></div>
+  <div id="apptModal" class="modal hidden">
+    <h3>เพิ่มนัดหมาย</h3>
+    <form id="apptForm">
+      <input type="hidden" id="apptDate" />
+      <label>ประเภทนัด
+        <select id="apptType">
+          <option value="OPD">OPD</option>
+          <option value="ลงชุมชน">ลงชุมชน</option>
+        </select>
+      </label>
+      <label>เวลาเริ่ม
+        <select id="apptStart"></select>
+      </label>
+      <label>ชื่อ
+        <input type="text" id="apptFirstName" required />
+      </label>
+      <label>นามสกุล
+        <input type="text" id="apptLastName" required />
+      </label>
+      <label>หมู่
+        <input type="text" id="apptMoo" placeholder="เช่น 4" required />
+      </label>
+      <label>เบอร์โทร <span style="font-weight:400;">(ไม่บังคับ)</span>
+        <input type="tel" id="apptPhone" />
+      </label>
+      <label>เลขบัตรประชาชน <span style="font-weight:400;">(ไม่บังคับ)</span>
+        <input type="text" id="apptNationalId" maxlength="13" inputmode="numeric" placeholder="13 หลัก" />
+      </label>
+      <label>หมายเหตุ
+        <input type="text" id="apptNote" />
+      </label>
+      <p id="apptError" class="error-text"></p>
+      <div class="modal-actions">
+        <button type="button" class="secondary" id="apptCancelBtn">ยกเลิก</button>
+        <button type="submit" class="primary">บันทึกนัด</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- ---------- โมดัลตั้งช่วงไม่ว่าง (นักกายภาพ) ---------- -->
+  <div id="busyModalBackdrop" class="backdrop hidden"></div>
+  <div id="busyModal" class="modal hidden">
+    <h3>ตั้งช่วงไม่ว่าง</h3>
+    <form id="busyForm">
+      <input type="hidden" id="busyDate" />
+      <label>ประเภท
+        <select id="busyType">
+          <option value="ประชุม">ประชุม</option>
+          <option value="ทำเอกสาร">ทำเอกสาร</option>
+          <option value="อบรม">อบรม</option>
+          <option value="ลา">ลา</option>
+        </select>
+      </label>
+      <label>เวลาเริ่ม
+        <input type="time" id="busyStart" required />
+      </label>
+      <label>เวลาสิ้นสุด
+        <input type="time" id="busyEnd" required />
+      </label>
+      <label>หมายเหตุ
+        <input type="text" id="busyNote" />
+      </label>
+      <p id="busyError" class="error-text"></p>
+      <div class="modal-actions">
+        <button type="button" class="secondary" id="busyCancelBtn">ยกเลิก</button>
+        <button type="submit" class="primary">บันทึก</button>
+      </div>
+    </form>
+  </div>
+
+  <div id="toast" class="toast hidden"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>
