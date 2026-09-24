@@ -11,7 +11,8 @@ const state = {
   year: new Date().getFullYear(),
   month: new Date().getMonth() + 1,
   currentDate: null,
-  currentDayDetail: null
+  currentDayDetail: null,
+  clinicTypes: []
 };
 
 /* ---------------- API helper (ใช้ JSONP เพื่อเลี่ยงปัญหา CORS ของ Apps Script) ---------------- */
@@ -87,6 +88,7 @@ function enterApp() {
   document.querySelectorAll('.physio-only').forEach(el => {
     el.style.display = state.role === 'physio' ? '' : 'none';
   });
+  if (state.role === 'physio') refreshClinicTypes();
   renderCalendar();
 }
 
@@ -137,10 +139,16 @@ async function renderCalendar() {
 
   res.data.forEach(day => {
     const cell = document.createElement('div');
-    cell.className = 'day-cell' + (day.isClosed ? ' closed' : '');
+    cell.className = 'day-cell' + (day.isClosed ? ' closed' : '') + (day.clinicColor ? ' has-clinic' : '');
+    if (day.clinicColor) cell.style.setProperty('--clinic-color', day.clinicColor);
     const dayNum = Number(day.date.split('-')[2]);
 
     const badges = [];
+    if (day.clinicName) {
+      const title = day.clinicNote ? ` title="${day.clinicNote.replace(/"/g, '')}"` : '';
+      badges.push(`<span class="badge clinic-tag" style="background:${day.clinicColor}"${title}>${day.clinicName}</span>`);
+    }
+    if (day.isSpecialOpen) badges.push(`<span class="badge special-tag">เปิดพิเศษ</span>`);
     if (day.opdCount) badges.push(`<span class="badge opd">OPD ${day.opdCount}</span>`);
     if (day.communityCount) badges.push(`<span class="badge community">ลงชุมชน ${day.communityCount}</span>`);
     day.busyTypes.forEach(t => badges.push(`<span class="badge busy">${t}</span>`));
@@ -151,7 +159,8 @@ async function renderCalendar() {
     }
 
     cell.innerHTML = `<div class="day-num">${dayNum}</div><div class="day-badges">${badges.join('')}</div>`;
-    if (!day.isClosed) {
+    // นักกายภาพคลิกวันปิดได้ด้วย เพื่อใช้ปุ่ม "เปิดรับพิเศษวันนี้"; เจ้าหน้าที่นัดคลิกได้เฉพาะวันเปิด
+    if (!day.isClosed || state.role === 'physio') {
       cell.addEventListener('click', () => openDayPanel(day.date));
     }
     grid.appendChild(cell);
@@ -192,6 +201,9 @@ async function openDayPanel(dateStr) {
 
   renderSlots(res.data.slots);
   renderApptList(res.data.appointments);
+  renderClinicDisplay(res.data.clinic);
+  renderClinicEditor(res.data.clinic);
+  renderDayToggleActions(res.data);
 
   dayPanel.classList.remove('hidden');
   dayPanelBackdrop.classList.remove('hidden');
@@ -237,6 +249,140 @@ function renderApptList(appts) {
     });
   });
 }
+
+/* ---------------- คลินิกประจำวัน (แสดง + แก้ไข) ---------------- */
+
+async function refreshClinicTypes() {
+  const res = await api('getClinicTypes');
+  if (res.ok) state.clinicTypes = res.data;
+}
+
+function renderClinicDisplay(clinic) {
+  const box = document.getElementById('clinicDisplay');
+  if (!clinic) {
+    box.innerHTML = '<span style="color:var(--ink-soft);font-size:13px;">ยังไม่กำหนดคลินิกวันนี้</span>';
+    return;
+  }
+  box.innerHTML = `<span class="badge clinic-tag" style="background:${clinic.color}">${clinic.name}</span>` +
+    (clinic.note ? `<div style="color:var(--ink-soft);font-size:12px;margin-top:6px;">${clinic.note}</div>` : '');
+}
+
+function renderClinicEditor(clinic) {
+  const editor = document.getElementById('clinicEditor');
+  if (state.role !== 'physio') { editor.classList.add('hidden'); return; }
+  editor.classList.remove('hidden');
+
+  const select = document.getElementById('clinicSelect');
+  select.innerHTML = '<option value="">-- ไม่กำหนดคลินิก --</option>' +
+    state.clinicTypes.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+  select.value = clinic ? clinic.id : '';
+  document.getElementById('clinicNoteInput').value = clinic ? clinic.note : '';
+}
+
+document.getElementById('saveClinicBtn').addEventListener('click', async () => {
+  const date = state.currentDate;
+  const clinicTypeId = document.getElementById('clinicSelect').value;
+  const note = document.getElementById('clinicNoteInput').value.trim();
+  const btn = document.getElementById('saveClinicBtn');
+  const originalText = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = 'กำลังบันทึก...';
+
+  const res = clinicTypeId
+    ? await api('setClinicDay', { date, clinicTypeId, note })
+    : await api('removeClinicDay', { date });
+
+  btn.disabled = false;
+  btn.textContent = originalText;
+  if (!res.ok) { toast(res.error); return; }
+  toast('บันทึกคลินิกวันนี้แล้ว');
+  await Promise.all([openDayPanel(date), renderCalendar()]);
+});
+
+/* ---------------- ปิดรับ/เปิดรับพิเศษวันนี้ (นักกายภาพ) ---------------- */
+
+function renderDayToggleActions(dayDetail) {
+  const box = document.getElementById('dayToggleActions');
+  if (state.role !== 'physio') { box.innerHTML = ''; return; }
+  box.innerHTML = '';
+
+  if (dayDetail.isOpen && dayDetail.isSpecialOpen) {
+    const btn = document.createElement('button');
+    btn.className = 'secondary';
+    btn.textContent = 'ยกเลิกเปิดรับพิเศษวันนี้';
+    btn.addEventListener('click', async () => {
+      const res = await api('removeSpecialOpen', { date: state.currentDate });
+      if (!res.ok) { toast(res.error); return; }
+      toast('ยกเลิกเปิดรับพิเศษแล้ว');
+      await Promise.all([openDayPanel(state.currentDate), renderCalendar()]);
+    });
+    box.appendChild(btn);
+  } else if (dayDetail.isOpen) {
+    const btn = document.createElement('button');
+    btn.className = 'secondary';
+    btn.textContent = 'ปิดรับวันนี้';
+    btn.addEventListener('click', async () => {
+      const reason = prompt('ระบุเหตุผล (ไม่บังคับ):', '') || '';
+      const res = await api('addClosedDate', { date: state.currentDate, reason });
+      if (!res.ok) { toast(res.error); return; }
+      toast('ปิดรับวันนี้แล้ว');
+      await Promise.all([openDayPanel(state.currentDate), renderCalendar()]);
+    });
+    box.appendChild(btn);
+  } else {
+    const btn = document.createElement('button');
+    btn.className = 'secondary';
+    btn.textContent = 'เปิดรับพิเศษวันนี้';
+    btn.addEventListener('click', () => openSpecialModal(state.currentDate));
+    box.appendChild(btn);
+  }
+}
+
+const specialModal = document.getElementById('specialModal');
+const specialModalBackdrop = document.getElementById('specialModalBackdrop');
+
+function openSpecialModal(date) {
+  document.getElementById('specialDate').value = date;
+  document.getElementById('specialError').textContent = '';
+  document.getElementById('specialForm').reset();
+  document.getElementById('specialStart').value = '08:30';
+  document.getElementById('specialEnd').value = '16:30';
+  document.getElementById('specialSlotMinutes').value = 30;
+  specialModal.classList.remove('hidden');
+  specialModalBackdrop.classList.remove('hidden');
+}
+function closeSpecialModal() {
+  specialModal.classList.add('hidden');
+  specialModalBackdrop.classList.add('hidden');
+}
+document.getElementById('specialCancelBtn').addEventListener('click', closeSpecialModal);
+specialModalBackdrop.addEventListener('click', closeSpecialModal);
+
+document.getElementById('specialForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const date = document.getElementById('specialDate').value;
+
+  const submitBtn = e.target.querySelector('button[type="submit"]');
+  const originalText = submitBtn.textContent;
+  submitBtn.disabled = true;
+  submitBtn.textContent = 'กำลังบันทึก...';
+
+  const res = await api('addSpecialOpen', {
+    date,
+    openTime: document.getElementById('specialStart').value,
+    closeTime: document.getElementById('specialEnd').value,
+    slotMinutes: Number(document.getElementById('specialSlotMinutes').value),
+    note: document.getElementById('specialNote').value.trim()
+  });
+
+  submitBtn.disabled = false;
+  submitBtn.textContent = originalText;
+
+  if (!res.ok) { document.getElementById('specialError').textContent = res.error; return; }
+  toast('เปิดรับพิเศษวันนี้แล้ว');
+  closeSpecialModal();
+  await Promise.all([openDayPanel(date), renderCalendar()]);
+});
 
 /* ---------------- โมดัลเพิ่มนัดหมาย ---------------- */
 
@@ -351,9 +497,10 @@ document.getElementById('busyForm').addEventListener('submit', async (e) => {
 const DAY_LABELS = { 1: 'จันทร์', 2: 'อังคาร', 3: 'พุธ', 4: 'พฤหัสบดี', 5: 'ศุกร์', 6: 'เสาร์', 0: 'อาทิตย์' };
 
 async function loadSettings() {
-  const [schedRes, closedRes] = await Promise.all([api('getSchedule'), api('getClosedDates')]); // เรียกพร้อมกัน ลดเวลารอ
+  const [schedRes, closedRes, clinicRes] = await Promise.all([api('getSchedule'), api('getClosedDates'), api('getClinicTypes')]); // เรียกพร้อมกัน ลดเวลารอ
   if (schedRes.ok) renderScheduleForm(schedRes.data);
   if (closedRes.ok) renderClosedList(closedRes.data);
+  if (clinicRes.ok) { state.clinicTypes = clinicRes.data; renderClinicTypesList(clinicRes.data); }
 }
 
 function renderScheduleForm(rows) {
@@ -425,6 +572,39 @@ document.getElementById('closedDateForm').addEventListener('submit', async (e) =
   document.getElementById('closedDateForm').reset();
   loadSettings();
   renderCalendar();
+});
+
+/* ---------------- ประเภทคลินิก (ตั้งค่า) ---------------- */
+
+function renderClinicTypesList(rows) {
+  const list = document.getElementById('clinicTypeList');
+  list.innerHTML = '';
+  if (!rows.length) { list.innerHTML = '<li style="background:none;color:var(--ink-soft);">ยังไม่มีประเภทคลินิก</li>'; return; }
+  rows.forEach(r => {
+    const li = document.createElement('li');
+    li.innerHTML = `<span><span class="color-swatch" style="background:${r.color}"></span>${r.name}</span><button data-id="${r.id}">ลบ</button>`;
+    list.appendChild(li);
+  });
+  list.querySelectorAll('button').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      if (!confirm('ลบประเภทคลินิกนี้? (วันที่เคยกำหนดคลินิกนี้ไว้จะถูกล้างไปด้วย)')) return;
+      const res = await api('removeClinicType', { id: btn.dataset.id });
+      if (!res.ok) { toast(res.error); return; }
+      loadSettings();
+      renderCalendar();
+    });
+  });
+}
+
+document.getElementById('clinicTypeForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const name = document.getElementById('clinicTypeName').value.trim();
+  const color = document.getElementById('clinicTypeColor').value;
+  const res = await api('addClinicType', { name, color });
+  if (!res.ok) { toast(res.error); return; }
+  document.getElementById('clinicTypeForm').reset();
+  document.getElementById('clinicTypeColor').value = '#2B6E63';
+  loadSettings();
 });
 
 /* ---------------- เริ่มระบบ ---------------- */
