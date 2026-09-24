@@ -264,6 +264,7 @@ function renderClinicDisplay(clinic) {
     return;
   }
   box.innerHTML = `<span class="badge clinic-tag" style="background:${clinic.color}">${clinic.name}</span>` +
+    (clinic.fromRule ? '<span style="color:var(--ink-soft);font-size:11px;margin-left:6px;">(ตามกฎอัตโนมัติ)</span>' : '') +
     (clinic.note ? `<div style="color:var(--ink-soft);font-size:12px;margin-top:6px;">${clinic.note}</div>` : '');
 }
 
@@ -273,10 +274,13 @@ function renderClinicEditor(clinic) {
   editor.classList.remove('hidden');
 
   const select = document.getElementById('clinicSelect');
-  select.innerHTML = '<option value="">-- ไม่กำหนดคลินิก --</option>' +
+  select.innerHTML =
+    '<option value="">-- ใช้ค่าอัตโนมัติ (ถ้ามีกฎ) --</option>' +
+    '<option value="__NONE__">ไม่มีคลินิก (เฉพาะวันนี้)</option>' +
     state.clinicTypes.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
-  select.value = clinic ? clinic.id : '';
-  document.getElementById('clinicNoteInput').value = clinic ? clinic.note : '';
+  // ถ้าคลินิกที่แสดงมาจากกฎอัตโนมัติ ให้ปล่อยช่องเลือกเป็นค่าว่าง (ยังไม่ได้ override เฉพาะวันนี้)
+  select.value = (clinic && !clinic.fromRule) ? clinic.id : '';
+  document.getElementById('clinicNoteInput').value = (clinic && !clinic.fromRule) ? clinic.note : '';
 }
 
 document.getElementById('saveClinicBtn').addEventListener('click', async () => {
@@ -497,10 +501,13 @@ document.getElementById('busyForm').addEventListener('submit', async (e) => {
 const DAY_LABELS = { 1: 'จันทร์', 2: 'อังคาร', 3: 'พุธ', 4: 'พฤหัสบดี', 5: 'ศุกร์', 6: 'เสาร์', 0: 'อาทิตย์' };
 
 async function loadSettings() {
-  const [schedRes, closedRes, clinicRes] = await Promise.all([api('getSchedule'), api('getClosedDates'), api('getClinicTypes')]); // เรียกพร้อมกัน ลดเวลารอ
+  const [schedRes, closedRes, clinicRes, ruleRes] = await Promise.all([
+    api('getSchedule'), api('getClosedDates'), api('getClinicTypes'), api('getClinicRules')
+  ]); // เรียกพร้อมกัน ลดเวลารอ
   if (schedRes.ok) renderScheduleForm(schedRes.data);
   if (closedRes.ok) renderClosedList(closedRes.data);
-  if (clinicRes.ok) { state.clinicTypes = clinicRes.data; renderClinicTypesList(clinicRes.data); }
+  if (clinicRes.ok) { state.clinicTypes = clinicRes.data; renderClinicTypesList(clinicRes.data); renderRuleClinicSelect(clinicRes.data); }
+  if (ruleRes.ok) renderClinicRulesList(ruleRes.data);
 }
 
 function renderScheduleForm(rows) {
@@ -605,6 +612,54 @@ document.getElementById('clinicTypeForm').addEventListener('submit', async (e) =
   document.getElementById('clinicTypeForm').reset();
   document.getElementById('clinicTypeColor').value = '#2B6E63';
   loadSettings();
+});
+
+/* ---------------- กฎคลินิกอัตโนมัติ (ตั้งค่า) ---------------- */
+
+const RULE_WEEKDAY_LABELS = { '0': 'อาทิตย์', '1': 'จันทร์', '2': 'อังคาร', '3': 'พุธ', '4': 'พฤหัสบดี', '5': 'ศุกร์', '6': 'เสาร์' };
+const RULE_NTH_LABELS = { every: 'ทุกสัปดาห์', '1': 'สัปดาห์ที่ 1', '2': 'สัปดาห์ที่ 2', '3': 'สัปดาห์ที่ 3', '4': 'สัปดาห์ที่ 4', last: 'สัปดาห์สุดท้าย' };
+
+function renderRuleClinicSelect(clinicTypes) {
+  const select = document.getElementById('ruleClinicSelect');
+  select.innerHTML = clinicTypes.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+}
+
+function renderClinicRulesList(rows) {
+  const list = document.getElementById('clinicRuleList');
+  list.innerHTML = '';
+  if (!rows.length) { list.innerHTML = '<li style="background:none;color:var(--ink-soft);">ยังไม่มีกฎอัตโนมัติ</li>'; return; }
+  rows.forEach(r => {
+    const clinicType = state.clinicTypes.find(c => c.id === r.clinicTypeId);
+    const clinicName = clinicType ? clinicType.name : '(ไม่พบคลินิก)';
+    const weekdayLabel = RULE_WEEKDAY_LABELS[String(r.weekday)] || r.weekday;
+    const nthLabel = RULE_NTH_LABELS[String(r.nth)] || r.nth;
+    const li = document.createElement('li');
+    li.innerHTML = `<span>${clinicName} — ${nthLabel === 'ทุกสัปดาห์' ? 'ทุกวัน' + weekdayLabel : `วัน${weekdayLabel} (${nthLabel})`}${r.note ? ' — ' + r.note : ''}</span><button data-id="${r.id}">ลบ</button>`;
+    list.appendChild(li);
+  });
+  list.querySelectorAll('button').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const res = await api('removeClinicRule', { id: btn.dataset.id });
+      if (!res.ok) { toast(res.error); return; }
+      loadSettings();
+      renderCalendar();
+    });
+  });
+}
+
+document.getElementById('clinicRuleForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const clinicTypeId = document.getElementById('ruleClinicSelect').value;
+  const weekday = document.getElementById('ruleWeekday').value;
+  const nth = document.getElementById('ruleNth').value;
+  const note = document.getElementById('ruleNote').value.trim();
+  if (!clinicTypeId) { toast('กรุณาเพิ่มประเภทคลินิกก่อน'); return; }
+  const res = await api('addClinicRule', { clinicTypeId, weekday, nth, note });
+  if (!res.ok) { toast(res.error); return; }
+  document.getElementById('clinicRuleForm').reset();
+  toast('เพิ่มกฎอัตโนมัติแล้ว');
+  loadSettings();
+  renderCalendar();
 });
 
 /* ---------------- เริ่มระบบ ---------------- */
