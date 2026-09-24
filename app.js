@@ -90,8 +90,6 @@ function enterApp() {
   renderCalendar();
 }
 
-if (state.token) enterApp();
-
 /* ---------------- Navigation ---------------- */
 
 document.querySelectorAll('.navBtn').forEach(btn => {
@@ -406,3 +404,7 @@ document.getElementById('closedDateForm').addEventListener('submit', async (e) =
   loadSettings();
   renderCalendar();
 });
+
+/* ---------------- เริ่มระบบ ---------------- */
+// วางไว้ท้ายไฟล์เสมอ เพื่อให้ตัวแปร/ฟังก์ชันทั้งหมด (เช่น MONTH_NAMES) ถูกประกาศครบก่อนเรียกใช้งาน
+if (state.token) enterApp();
