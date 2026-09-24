@@ -228,11 +228,12 @@ function renderApptList(appts) {
   list.querySelectorAll('.appt-cancel').forEach(btn => {
     btn.addEventListener('click', async () => {
       if (!confirm('ยืนยันยกเลิกนัดนี้?')) return;
+      btn.disabled = true;
+      btn.textContent = 'กำลังยกเลิก...';
       const res = await api('cancelAppointment', { id: btn.dataset.id });
-      if (!res.ok) { toast(res.error); return; }
+      if (!res.ok) { toast(res.error); btn.disabled = false; btn.textContent = 'ยกเลิกนัด'; return; }
       toast('ยกเลิกนัดแล้ว');
-      openDayPanel(state.currentDate);
-      renderCalendar();
+      await Promise.all([openDayPanel(state.currentDate), renderCalendar()]); // เรียกพร้อมกัน ลดเวลารอ
     });
   });
 }
@@ -275,6 +276,11 @@ document.getElementById('apptForm').addEventListener('submit', async (e) => {
   const slot = state.currentDayDetail.slots.find(s => s.start === startTime);
   const endTime = slot ? slot.end : startTime;
 
+  const submitBtn = e.target.querySelector('button[type="submit"]');
+  const originalText = submitBtn.textContent;
+  submitBtn.disabled = true;
+  submitBtn.textContent = 'กำลังบันทึก...';
+
   const res = await api('addAppointment', {
     date, startTime, endTime,
     type: document.getElementById('apptType').value,
@@ -286,11 +292,13 @@ document.getElementById('apptForm').addEventListener('submit', async (e) => {
     note: document.getElementById('apptNote').value.trim()
   });
 
+  submitBtn.disabled = false;
+  submitBtn.textContent = originalText;
+
   if (!res.ok) { document.getElementById('apptError').textContent = res.error; return; }
   toast('บันทึกนัดหมายแล้ว');
   closeApptModal();
-  openDayPanel(date);
-  renderCalendar();
+  await Promise.all([openDayPanel(date), renderCalendar()]); // เรียกพร้อมกันแทนเรียงลำดับ ลดเวลารอ
 });
 
 /* ---------------- โมดัลตั้งช่วงไม่ว่าง (นักกายภาพ) ---------------- */
@@ -315,6 +323,12 @@ busyModalBackdrop.addEventListener('click', closeBusyModal);
 document.getElementById('busyForm').addEventListener('submit', async (e) => {
   e.preventDefault();
   const date = document.getElementById('busyDate').value;
+
+  const submitBtn = e.target.querySelector('button[type="submit"]');
+  const originalText = submitBtn.textContent;
+  submitBtn.disabled = true;
+  submitBtn.textContent = 'กำลังบันทึก...';
+
   const res = await api('addBusy', {
     date,
     startTime: document.getElementById('busyStart').value,
@@ -322,11 +336,14 @@ document.getElementById('busyForm').addEventListener('submit', async (e) => {
     type: document.getElementById('busyType').value,
     note: document.getElementById('busyNote').value.trim()
   });
+
+  submitBtn.disabled = false;
+  submitBtn.textContent = originalText;
+
   if (!res.ok) { document.getElementById('busyError').textContent = res.error; return; }
   toast('บันทึกช่วงไม่ว่างแล้ว');
   closeBusyModal();
-  openDayPanel(date);
-  renderCalendar();
+  await Promise.all([openDayPanel(date), renderCalendar()]); // เรียกพร้อมกันแทนเรียงลำดับ ลดเวลารอ
 });
 
 /* ---------------- ตั้งค่า (เฉพาะนักกายภาพ) ---------------- */
@@ -334,9 +351,8 @@ document.getElementById('busyForm').addEventListener('submit', async (e) => {
 const DAY_LABELS = { 1: 'จันทร์', 2: 'อังคาร', 3: 'พุธ', 4: 'พฤหัสบดี', 5: 'ศุกร์', 6: 'เสาร์', 0: 'อาทิตย์' };
 
 async function loadSettings() {
-  const schedRes = await api('getSchedule');
+  const [schedRes, closedRes] = await Promise.all([api('getSchedule'), api('getClosedDates')]); // เรียกพร้อมกัน ลดเวลารอ
   if (schedRes.ok) renderScheduleForm(schedRes.data);
-  const closedRes = await api('getClosedDates');
   if (closedRes.ok) renderClosedList(closedRes.data);
 }
 
@@ -361,7 +377,11 @@ function renderScheduleForm(rows) {
   });
 }
 
-document.getElementById('saveScheduleBtn').addEventListener('click', async () => {
+document.getElementById('saveScheduleBtn').addEventListener('click', async (e) => {
+  const btn = e.target;
+  const originalText = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = 'กำลังบันทึก...';
   const days = [0,1,2,3,4,5,6].map(dayNum => ({
     day: dayNum,
     isOpen: dayNum === 0 || dayNum === 6 ? false : document.querySelector(`.sched-open[data-day="${dayNum}"]`).checked,
@@ -370,6 +390,8 @@ document.getElementById('saveScheduleBtn').addEventListener('click', async () =>
     slotMinutes: Number(document.querySelector(`.sched-slot[data-day="${dayNum}"]`)?.value || 30)
   }));
   const res = await api('setSchedule', { days });
+  btn.disabled = false;
+  btn.textContent = originalText;
   if (!res.ok) { toast(res.error); return; }
   toast('บันทึกเวลาเปิด-ปิดแล้ว');
   renderCalendar();
