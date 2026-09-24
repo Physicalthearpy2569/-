@@ -9,6 +9,8 @@
   --teal-tint: #E4EEEC;
   --clay: #C97A3D;
   --clay-tint: #F6E7DA;
+  --amber: #C9971F;
+  --amber-tint: #F7EDD3;
   --taupe: #8B8378;
   --taupe-tint: #EFEBE6;
   --danger: #B3452F;
@@ -230,6 +232,7 @@ label {
 .dot.community { background: var(--clay); }
 .dot.busy { background: var(--taupe); }
 .dot.closed { background: var(--line); border: 1px solid #B9C2BE; }
+.dot.special { background: var(--amber); }
 
 /* ---------------- Calendar ---------------- */
 
@@ -278,6 +281,10 @@ label {
 .badge.community { background: var(--clay-tint); color: #8A4E20; }
 .badge.busy { background: var(--taupe-tint); color: #5B5347; }
 .badge.closed-tag { background: var(--line); color: var(--ink-soft); }
+.badge.special-tag { background: var(--amber-tint); color: #8A6B10; }
+.badge.clinic-tag { color: #fff; font-weight: 600; }
+
+.day-cell.has-clinic { border-top: 3px solid var(--clinic-color, transparent); }
 
 /* ---------------- Settings ---------------- */
 
@@ -290,6 +297,17 @@ label {
   max-width: 640px;
 }
 .panel h3 { margin-top: 0; font-size: 15px; }
+.panel-hint { color: var(--ink-soft); font-size: 13px; margin-top: -8px; margin-bottom: 14px; }
+
+.color-swatch {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border-radius: 4px;
+  margin-inline-end: 8px;
+  vertical-align: middle;
+  border: 1px solid rgba(0,0,0,0.15);
+}
 
 .schedule-row {
   display: grid;
@@ -371,6 +389,21 @@ label {
   font-size: 13px;
   margin-bottom: 14px;
 }
+
+.clinic-display { margin-bottom: 8px; min-height: 20px; }
+.clinic-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: var(--bg);
+  border-radius: 8px;
+  padding: 10px;
+  margin-bottom: 4px;
+}
+.clinic-editor select, .clinic-editor input { width: 100%; }
+
+.day-toggle-actions { display: flex; flex-direction: column; gap: 8px; margin: 14px 0; }
+.day-toggle-actions button { width: 100%; }
 
 .section-label {
   font-size: 12px;
