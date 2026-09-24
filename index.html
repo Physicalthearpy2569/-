@@ -97,6 +97,34 @@
           </form>
           <ul id="clinicTypeList" class="tag-list"></ul>
         </div>
+
+        <div class="panel">
+          <h3>กำหนดคลินิกอัตโนมัติ (ตามวัน)</h3>
+          <p class="panel-hint">เช่น "คลินิกป้องกันล้ม ทุกวันอังคารที่ 4 ของเดือน" — ตั้งครั้งเดียว ระบบจะขึ้นให้เองทุกเดือน</p>
+          <form id="clinicRuleForm" class="rule-form">
+            <select id="ruleClinicSelect" required></select>
+            <select id="ruleWeekday" required>
+              <option value="1">ทุกวันจันทร์</option>
+              <option value="2">ทุกวันอังคาร</option>
+              <option value="3">ทุกวันพุธ</option>
+              <option value="4">ทุกวันพฤหัสบดี</option>
+              <option value="5">ทุกวันศุกร์</option>
+              <option value="6">ทุกวันเสาร์</option>
+              <option value="0">ทุกวันอาทิตย์</option>
+            </select>
+            <select id="ruleNth" required>
+              <option value="every">ทุกสัปดาห์</option>
+              <option value="1">สัปดาห์ที่ 1 ของเดือน</option>
+              <option value="2">สัปดาห์ที่ 2 ของเดือน</option>
+              <option value="3">สัปดาห์ที่ 3 ของเดือน</option>
+              <option value="4">สัปดาห์ที่ 4 ของเดือน</option>
+              <option value="last">สัปดาห์สุดท้ายของเดือน</option>
+            </select>
+            <input type="text" id="ruleNote" placeholder="note (ไม่บังคับ)" />
+            <button type="submit">เพิ่มกฎ</button>
+          </form>
+          <ul id="clinicRuleList" class="tag-list"></ul>
+        </div>
       </section>
     </main>
   </div>
@@ -114,7 +142,10 @@
       <div class="section-label">คลินิกวันนี้</div>
       <div id="clinicDisplay" class="clinic-display"></div>
       <div id="clinicEditor" class="clinic-editor physio-only hidden">
-        <select id="clinicSelect"><option value="">-- ไม่กำหนดคลินิก --</option></select>
+        <select id="clinicSelect">
+          <option value="">-- ใช้ค่าอัตโนมัติ (ถ้ามีกฎ) --</option>
+          <option value="__NONE__">ไม่มีคลินิก (เฉพาะวันนี้)</option>
+        </select>
         <input type="text" id="clinicNoteInput" placeholder="note เช่น pain-knee, pain-back-office syndrome" />
         <button id="saveClinicBtn" class="secondary">บันทึกคลินิกวันนี้</button>
       </div>
