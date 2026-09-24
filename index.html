@@ -57,6 +57,7 @@
             <span class="legend-item"><i class="dot opd"></i>OPD</span>
             <span class="legend-item"><i class="dot community"></i>ลงชุมชน</span>
             <span class="legend-item"><i class="dot busy"></i>ไม่ว่าง</span>
+            <span class="legend-item"><i class="dot special"></i>เปิดพิเศษ</span>
             <span class="legend-item"><i class="dot closed"></i>ปิดทำการ</span>
           </div>
         </header>
@@ -85,6 +86,17 @@
           </form>
           <ul id="closedDateList" class="tag-list"></ul>
         </div>
+
+        <div class="panel">
+          <h3>ประเภทคลินิกประจำวัน</h3>
+          <p class="panel-hint">ตั้งชื่อ+สีคลินิก เพื่อนำไปกำหนดบนวันในปฏิทิน (เช่น คลินิกข้อเข่า, คลินิกป้องกันล้ม)</p>
+          <form id="clinicTypeForm" class="inline-form">
+            <input type="text" id="clinicTypeName" placeholder="ชื่อคลินิก" required />
+            <input type="color" id="clinicTypeColor" value="#2B6E63" title="เลือกสี" />
+            <button type="submit">เพิ่มคลินิก</button>
+          </form>
+          <ul id="clinicTypeList" class="tag-list"></ul>
+        </div>
       </section>
     </main>
   </div>
@@ -99,6 +111,16 @@
     <div id="dayPanelClosedNote" class="closed-note hidden"></div>
 
     <div id="dayPanelBody">
+      <div class="section-label">คลินิกวันนี้</div>
+      <div id="clinicDisplay" class="clinic-display"></div>
+      <div id="clinicEditor" class="clinic-editor physio-only hidden">
+        <select id="clinicSelect"><option value="">-- ไม่กำหนดคลินิก --</option></select>
+        <input type="text" id="clinicNoteInput" placeholder="note เช่น pain-knee, pain-back-office syndrome" />
+        <button id="saveClinicBtn" class="secondary">บันทึกคลินิกวันนี้</button>
+      </div>
+
+      <div id="dayToggleActions" class="day-toggle-actions physio-only"></div>
+
       <div class="section-label">ช่วงเวลา</div>
       <div id="slotList" class="slot-list"></div>
 
@@ -177,6 +199,33 @@
       <div class="modal-actions">
         <button type="button" class="secondary" id="busyCancelBtn">ยกเลิก</button>
         <button type="submit" class="primary">บันทึก</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- ---------------- โมดัลเปิดรับพิเศษ (วันที่ปกติปิด) ---------------- -->
+  <div id="specialModalBackdrop" class="backdrop hidden"></div>
+  <div id="specialModal" class="modal hidden">
+    <h3>เปิดรับพิเศษวันนี้</h3>
+    <p class="panel-hint">ใช้สำหรับวันที่ปกติปิด (เช่น อังคารทุกสัปดาห์) แต่ต้องการเปิดนัดเฉพาะวันนี้</p>
+    <form id="specialForm">
+      <input type="hidden" id="specialDate" />
+      <label>เวลาเปิด
+        <input type="time" id="specialStart" value="08:30" required />
+      </label>
+      <label>เวลาปิด
+        <input type="time" id="specialEnd" value="16:30" required />
+      </label>
+      <label>นาที/ช่องนัด
+        <input type="number" id="specialSlotMinutes" min="10" step="5" value="30" required />
+      </label>
+      <label>หมายเหตุ
+        <input type="text" id="specialNote" placeholder="เช่น เปิดนัดพิเศษ" />
+      </label>
+      <p id="specialError" class="error-text"></p>
+      <div class="modal-actions">
+        <button type="button" class="secondary" id="specialCancelBtn">ยกเลิก</button>
+        <button type="submit" class="primary">เปิดรับพิเศษ</button>
       </div>
     </form>
   </div>
