@@ -292,9 +292,12 @@ label {
 .badge.busy { background: var(--taupe-tint); color: #5B5347; }
 .badge.closed-tag { background: var(--line); color: var(--ink-soft); }
 .badge.special-tag { background: var(--amber-tint); color: #8A6B10; }
+.badge.avail-tag { background: var(--teal-tint); color: var(--teal-dark); }
 .badge.clinic-tag { color: #fff; font-weight: 600; }
 
 .day-cell.has-clinic { border-top: 3px solid var(--clinic-color, transparent); }
+
+.calendar-grid.loading { opacity: 0.5; pointer-events: none; }
 
 /* ---------------- Settings ---------------- */
 
@@ -505,12 +508,49 @@ label {
   z-index: 50;
 }
 
+/* ---------------- Responsive: iPad / แท็บเล็ต ---------------- */
+@media (max-width: 1024px) {
+  .sidebar { width: 180px; padding: 20px 12px; }
+  .content { padding: 20px 22px; }
+  .day-panel { width: 360px; }
+}
+
+/* ---------------- Responsive: มือถือ / แท็บเล็ตแนวตั้งจอแคบ ---------------- */
 @media (max-width: 720px) {
-  .app { grid-template-columns: 1fr; }
-  .sidebar { flex-direction: row; align-items: center; padding: 14px 16px; }
-  .sidebar nav { flex-direction: row; }
+  .app { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
+  .sidebar {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    width: auto;
+    padding: 10px 14px;
+    gap: 10px;
+  }
+  .brand { margin-bottom: 0; font-size: 15px; }
+  .sidebar nav { flex-direction: row; flex: 1; justify-content: center; }
+  .navBtn { padding: 10px 12px; font-size: 13px; text-align: center; }
   .who { display: none; }
-  .content { padding: 18px; }
-  .calendar-grid { gap: 4px; }
-  .day-cell { min-height: 76px; padding: 6px; }
+  #logoutBtn { font-size: 12px; }
+  .content { padding: 14px; }
+
+  .view-head { gap: 8px; }
+  .month-nav h2 { font-size: 17px; min-width: 0; }
+  .month-nav button { width: 40px; height: 40px; } /* ปุ่มกดสะดวกด้วยนิ้ว */
+  .legend { display: none; } /* จอแคบไม่พอ ไปดูสีในแต่ละวันแทน */
+
+  .weekday-row { font-size: 11px; padding: 0 1px 6px; }
+  .calendar-grid { gap: 3px; }
+  .day-cell { min-height: 58px; padding: 4px; border-radius: 8px; }
+  .day-num { font-size: 12px; }
+  .clinic-line { font-size: 0; line-height: 0; height: 6px; margin-bottom: 2px; border-radius: 3px; background: currentColor; }
+  .day-badges { gap: 2px; }
+  .badge { font-size: 0; padding: 0; width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
+  .badge.avail-tag, .badge.closed-tag, .badge.opd, .badge.community {
+    font-size: 9px; padding: 1px 5px; border-radius: 999px; width: auto; height: auto;
+  }
+
+  .day-panel { width: 100%; max-width: 100%; left: 0; border-radius: 16px 16px 0 0; top: auto; bottom: 0; height: 88vh; }
+  .modal { width: 92vw; max-height: 86vh; overflow-y: auto; }
+  .rule-form select, .rule-form input[type="text"] { min-width: 100%; flex-basis: 100%; }
+  .schedule-row { grid-template-columns: 70px auto 1fr 1fr 70px; font-size: 12px; gap: 6px; }
 }
