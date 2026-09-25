@@ -69,7 +69,10 @@
 
       <!-- ตั้งค่า (เฉพาะนักกายภาพ) -->
       <section id="settingsView" class="view hidden">
-        <header class="view-head"><h2>ตั้งค่าเวลาให้บริการ</h2></header>
+        <header class="view-head">
+          <h2>ตั้งค่าเวลาให้บริการ</h2>
+          <button id="refreshSettingsBtn" class="secondary">รีเฟรช</button>
+        </header>
 
         <div class="panel">
           <h3>เวลาเปิด–ปิด รายวัน (จันทร์–ศุกร์)</h3>
@@ -262,6 +265,17 @@
   </div>
 
   <div id="toast" class="toast hidden"></div>
+
+  <!-- ---------------- โมดัลดูรายละเอียดนัดหมาย ---------------- -->
+  <div id="apptDetailModalBackdrop" class="backdrop hidden"></div>
+  <div id="apptDetailModal" class="modal hidden">
+    <h3>รายละเอียดนัดหมาย</h3>
+    <div id="apptDetailBody" class="detail-body"></div>
+    <div class="modal-actions">
+      <button type="button" class="secondary" id="apptDetailCloseBtn">ปิด</button>
+      <button type="button" class="secondary" id="apptDetailCancelBtn" style="color:#B3452F;">ยกเลิกนัดนี้</button>
+    </div>
+  </div>
 
   <script src="app.js"></script>
 </body>
