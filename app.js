@@ -42,6 +42,11 @@ async function api(action, payload = {}) {
   if (!data.ok && data.error === 'กรุณาเข้าสู่ระบบใหม่') {
     logout();
   }
+  // การกระทำใดๆ ที่ไม่ใช่ "get..." ถือว่าเป็นการแก้ไขข้อมูล ต้องล้างแคชปฏิทินที่ดักไว้ล่วงหน้าทันที
+  // มิเช่นนั้นจะเห็นข้อมูลเก่าค้างอยู่หลังบันทึก/ยกเลิก/แก้ไขต่างๆ
+  if (data.ok && action !== 'login' && action.indexOf('get') !== 0) {
+    Object.keys(_calendarPrefetchCache_).forEach(k => delete _calendarPrefetchCache_[k]);
+  }
   return data;
 }
 
@@ -121,6 +126,15 @@ function shiftMonth(delta) {
 }
 
 let _calendarReqId_ = 0; // กันปัญหาเดือนค้าง: ถ้ากดเปลี่ยนเดือนเร็วๆ ผลลัพธ์เก่าที่มาช้ากว่าจะถูกทิ้งไป ไม่ทับของใหม่
+const _calendarPrefetchCache_ = {}; // เก็บผลลัพธ์เดือนที่ดึงไว้ล่วงหน้า key: "year-month"
+
+function fetchCalendarMonth_(year, month) {
+  const key = year + '-' + month;
+  if (!_calendarPrefetchCache_[key]) {
+    _calendarPrefetchCache_[key] = api('getCalendar', { year, month });
+  }
+  return _calendarPrefetchCache_[key];
+}
 
 async function renderCalendar() {
   const reqId = ++_calendarReqId_;
@@ -128,14 +142,21 @@ async function renderCalendar() {
   document.getElementById('prevMonth').disabled = true;
   document.getElementById('nextMonth').disabled = true;
 
-  const res = await api('getCalendar', { year: state.year, month: state.month });
+  const grid = document.getElementById('calendarGrid');
+  grid.classList.add('loading');
+
+  const res = await fetchCalendarMonth_(state.year, state.month);
 
   document.getElementById('prevMonth').disabled = false;
   document.getElementById('nextMonth').disabled = false;
   if (reqId !== _calendarReqId_) return; // มีการเรียกครั้งใหม่กว่าเกิดขึ้นแล้ว ผลลัพธ์นี้เก่าเกินไป ไม่ต้องเอามาแสดง
-  if (!res.ok) { toast(res.error); return; }
+  grid.classList.remove('loading');
+  if (!res.ok) {
+    delete _calendarPrefetchCache_[state.year + '-' + state.month]; // เผื่อโหลดพลาด ครั้งหน้าจะได้ลองใหม่
+    toast(res.error);
+    return;
+  }
 
-  const grid = document.getElementById('calendarGrid');
   grid.innerHTML = '';
 
   const firstDate = new Date(state.year, state.month - 1, 1);
@@ -160,6 +181,9 @@ async function renderCalendar() {
 
     const badges = [];
     if (day.isSpecialOpen) badges.push(`<span class="badge special-tag">เปิดพิเศษ</span>`);
+    if (!day.isClosed && day.slotsAvailable !== null && day.slotsAvailable !== undefined) {
+      badges.push(`<span class="badge avail-tag">ว่างอีก ${day.slotsAvailable}</span>`);
+    }
     if (day.opdCount) badges.push(`<span class="badge opd">OPD ${day.opdCount}</span>`);
     if (day.communityCount) badges.push(`<span class="badge community">ลงชุมชน ${day.communityCount}</span>`);
     day.busyTypes.forEach(t => badges.push(`<span class="badge busy">${t}</span>`));
@@ -176,6 +200,18 @@ async function renderCalendar() {
     }
     grid.appendChild(cell);
   });
+
+  // ดึงเดือนก่อนหน้า/ถัดไปดักไว้เงียบๆ เบื้องหลัง เพื่อให้กดเปลี่ยนเดือนครั้งถัดไปไวขึ้นทันที
+  prefetchAdjacentMonths_();
+}
+
+function prefetchAdjacentMonths_() {
+  let py = state.year, pm = state.month - 1;
+  if (pm < 1) { pm = 12; py--; }
+  let ny = state.year, nm = state.month + 1;
+  if (nm > 12) { nm = 1; ny++; }
+  fetchCalendarMonth_(py, pm);
+  fetchCalendarMonth_(ny, nm);
 }
 
 /* ---------------- แผงรายละเอียดวัน ---------------- */
