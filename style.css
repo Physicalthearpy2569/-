@@ -218,6 +218,7 @@ label {
   background: var(--surface);
   border: 1px solid var(--line);
 }
+.month-nav button:disabled { opacity: 0.4; cursor: default; }
 .month-nav h2 { margin: 0; font-size: 20px; min-width: 160px; text-align: center; }
 
 .legend {
@@ -269,6 +270,15 @@ label {
 .day-cell.closed:hover { border-color: var(--line); }
 
 .day-num { font-weight: 600; font-size: 14px; }
+.clinic-line {
+  font-weight: 700;
+  font-size: 11px;
+  line-height: 1.2;
+  margin-bottom: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 
 .day-badges { display: flex; flex-wrap: wrap; gap: 4px; margin-top: auto; }
 .badge {
@@ -474,6 +484,11 @@ label {
 }
 .modal h3 { margin-top: 0; }
 .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 6px; }
+
+.detail-body { display: flex; flex-direction: column; gap: 10px; margin-bottom: 6px; }
+.detail-row { display: flex; justify-content: space-between; gap: 12px; font-size: 13px; border-bottom: 1px solid var(--line); padding-bottom: 8px; }
+.detail-label { color: var(--ink-soft); flex-shrink: 0; }
+.detail-value { text-align: right; font-weight: 600; }
 
 /* ---------------- Toast ---------------- */
 
