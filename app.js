@@ -12,7 +12,8 @@ const state = {
   month: new Date().getMonth() + 1,
   currentDate: null,
   currentDayDetail: null,
-  clinicTypes: []
+  clinicTypes: [],
+  settingsLoaded: false
 };
 
 /* ---------------- API helper (ใช้ JSONP เพื่อเลี่ยงปัญหา CORS ของ Apps Script) ---------------- */
@@ -53,7 +54,7 @@ function toast(msg) {
 
 /* ---------------- Auth ---------------- */
 
-document.getElementById('loginForm').addEventListener('submit', async (e) => {
+document.getElementById('loginForm')?.addEventListener('submit', async (e) => {
   e.preventDefault();
   const username = document.getElementById('loginUsername').value.trim();
   const password = document.getElementById('loginPassword').value;
@@ -78,7 +79,7 @@ function logout() {
   document.getElementById('appView').classList.add('hidden');
   document.getElementById('loginView').classList.remove('hidden');
 }
-document.getElementById('logoutBtn').addEventListener('click', logout);
+document.getElementById('logoutBtn')?.addEventListener('click', logout);
 
 function enterApp() {
   document.getElementById('loginView').classList.add('hidden');
@@ -101,7 +102,7 @@ document.querySelectorAll('.navBtn').forEach(btn => {
     const view = btn.dataset.view;
     document.getElementById('calendarView').classList.toggle('hidden', view !== 'calendar');
     document.getElementById('settingsView').classList.toggle('hidden', view !== 'settings');
-    if (view === 'settings') loadSettings();
+    if (view === 'settings' && !state.settingsLoaded) loadSettings();
   });
 });
 
@@ -109,8 +110,8 @@ document.querySelectorAll('.navBtn').forEach(btn => {
 
 const MONTH_NAMES = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
 
-document.getElementById('prevMonth').addEventListener('click', () => shiftMonth(-1));
-document.getElementById('nextMonth').addEventListener('click', () => shiftMonth(1));
+document.getElementById('prevMonth')?.addEventListener('click', () => shiftMonth(-1));
+document.getElementById('nextMonth')?.addEventListener('click', () => shiftMonth(1));
 
 function shiftMonth(delta) {
   state.month += delta;
@@ -119,9 +120,19 @@ function shiftMonth(delta) {
   renderCalendar();
 }
 
+let _calendarReqId_ = 0; // กันปัญหาเดือนค้าง: ถ้ากดเปลี่ยนเดือนเร็วๆ ผลลัพธ์เก่าที่มาช้ากว่าจะถูกทิ้งไป ไม่ทับของใหม่
+
 async function renderCalendar() {
+  const reqId = ++_calendarReqId_;
   document.getElementById('monthLabel').textContent = `${MONTH_NAMES[state.month - 1]} ${state.year + 543}`;
+  document.getElementById('prevMonth').disabled = true;
+  document.getElementById('nextMonth').disabled = true;
+
   const res = await api('getCalendar', { year: state.year, month: state.month });
+
+  document.getElementById('prevMonth').disabled = false;
+  document.getElementById('nextMonth').disabled = false;
+  if (reqId !== _calendarReqId_) return; // มีการเรียกครั้งใหม่กว่าเกิดขึ้นแล้ว ผลลัพธ์นี้เก่าเกินไป ไม่ต้องเอามาแสดง
   if (!res.ok) { toast(res.error); return; }
 
   const grid = document.getElementById('calendarGrid');
@@ -143,11 +154,11 @@ async function renderCalendar() {
     if (day.clinicColor) cell.style.setProperty('--clinic-color', day.clinicColor);
     const dayNum = Number(day.date.split('-')[2]);
 
+    const clinicLine = day.clinicName
+      ? `<div class="clinic-line" style="color:${day.clinicColor}" title="${(day.clinicNote || '').replace(/"/g, '')}">${day.clinicName}</div>`
+      : '';
+
     const badges = [];
-    if (day.clinicName) {
-      const title = day.clinicNote ? ` title="${day.clinicNote.replace(/"/g, '')}"` : '';
-      badges.push(`<span class="badge clinic-tag" style="background:${day.clinicColor}"${title}>${day.clinicName}</span>`);
-    }
     if (day.isSpecialOpen) badges.push(`<span class="badge special-tag">เปิดพิเศษ</span>`);
     if (day.opdCount) badges.push(`<span class="badge opd">OPD ${day.opdCount}</span>`);
     if (day.communityCount) badges.push(`<span class="badge community">ลงชุมชน ${day.communityCount}</span>`);
@@ -158,7 +169,7 @@ async function renderCalendar() {
       badges.push(`<span class="badge closed-tag">ปิด${day.closedReason ? ': ' + day.closedReason : ''}</span>`);
     }
 
-    cell.innerHTML = `<div class="day-num">${dayNum}</div><div class="day-badges">${badges.join('')}</div>`;
+    cell.innerHTML = `${clinicLine}<div class="day-num">${dayNum}</div><div class="day-badges">${badges.join('')}</div>`;
     // นักกายภาพคลิกวันปิดได้ด้วย เพื่อใช้ปุ่ม "เปิดรับพิเศษวันนี้"; เจ้าหน้าที่นัดคลิกได้เฉพาะวันเปิด
     if (!day.isClosed || state.role === 'physio') {
       cell.addEventListener('click', () => openDayPanel(day.date));
@@ -172,8 +183,8 @@ async function renderCalendar() {
 const dayPanel = document.getElementById('dayPanel');
 const dayPanelBackdrop = document.getElementById('dayPanelBackdrop');
 
-document.getElementById('closeDayPanel').addEventListener('click', closeDayPanel);
-dayPanelBackdrop.addEventListener('click', closeDayPanel);
+document.getElementById('closeDayPanel')?.addEventListener('click', closeDayPanel);
+dayPanelBackdrop?.addEventListener('click', closeDayPanel);
 
 function closeDayPanel() {
   dayPanel.classList.add('hidden');
@@ -227,15 +238,25 @@ function renderApptList(appts) {
   const list = document.getElementById('apptList');
   list.innerHTML = '';
   if (!appts.length) { list.innerHTML = '<li style="border:none;color:var(--ink-soft);">ยังไม่มีนัดหมาย</li>'; return; }
+  state.currentAppts = appts; // เก็บไว้ใช้เปิดดูรายละเอียด
   appts.forEach(a => {
     const li = document.createElement('li');
+    li.dataset.viewId = a.id;
+    li.style.cursor = 'pointer';
     li.innerHTML = `
       <div><span class="appt-time">${a.startTime}-${a.endTime}</span>${a.firstName} ${a.lastName}
         <span class="badge ${a.type === 'OPD' ? 'opd' : 'community'}">${a.type}</span></div>
-      <div style="color:var(--ink-soft);font-size:12px;">หมู่ ${a.moo}${a.phone ? ' · โทร ' + a.phone : ''}${a.nationalId ? ' · บัตร ปชช. ' + a.nationalId : ''}</div>
+      <div style="color:var(--ink-soft);font-size:12px;">หมู่ ${a.moo}${a.phone ? ' · โทร ' + a.phone : ''}</div>
       <button class="appt-cancel" data-id="${a.id}">ยกเลิกนัด</button>
       <div style="clear:both"></div>`;
     list.appendChild(li);
+  });
+  list.querySelectorAll('li[data-view-id]').forEach(li => {
+    li.addEventListener('click', (e) => {
+      if (e.target.closest('.appt-cancel')) return; // กดปุ่มยกเลิก ไม่ต้องเปิดรายละเอียด
+      const appt = state.currentAppts.find(a => a.id === li.dataset.viewId);
+      if (appt) openApptDetail(appt);
+    });
   });
   list.querySelectorAll('.appt-cancel').forEach(btn => {
     btn.addEventListener('click', async () => {
@@ -249,6 +270,47 @@ function renderApptList(appts) {
     });
   });
 }
+
+/* ---------------- ดูรายละเอียดนัดหมาย ---------------- */
+
+const apptDetailModal = document.getElementById('apptDetailModal');
+const apptDetailModalBackdrop = document.getElementById('apptDetailModalBackdrop');
+
+function openApptDetail(a) {
+  const rows = [
+    ['ประเภทนัด', a.type],
+    ['เวลา', `${a.startTime} - ${a.endTime}`],
+    ['ชื่อ-นามสกุล', `${a.firstName} ${a.lastName}`],
+    ['หมู่', a.moo || '-'],
+    ['เบอร์โทร', a.phone || '-'],
+    ['เลขบัตรประชาชน', a.nationalId || '-'],
+    ['หมายเหตุ', a.note || '-'],
+    ['บันทึกโดย', a.createdBy || '-']
+  ];
+  document.getElementById('apptDetailBody').innerHTML = rows.map(([label, value]) =>
+    `<div class="detail-row"><span class="detail-label">${label}</span><span class="detail-value">${value}</span></div>`
+  ).join('');
+  document.getElementById('apptDetailCancelBtn').dataset.id = a.id;
+  apptDetailModal?.classList.remove('hidden');
+  apptDetailModalBackdrop?.classList.remove('hidden');
+}
+function closeApptDetail() {
+  apptDetailModal?.classList.add('hidden');
+  apptDetailModalBackdrop?.classList.add('hidden');
+}
+document.getElementById('apptDetailCloseBtn')?.addEventListener('click', closeApptDetail);
+apptDetailModalBackdrop?.addEventListener('click', closeApptDetail);
+document.getElementById('apptDetailCancelBtn')?.addEventListener('click', async (e) => {
+  if (!confirm('ยืนยันยกเลิกนัดนี้?')) return;
+  const id = e.target.dataset.id;
+  e.target.disabled = true;
+  const res = await api('cancelAppointment', { id });
+  e.target.disabled = false;
+  if (!res.ok) { toast(res.error); return; }
+  toast('ยกเลิกนัดแล้ว');
+  closeApptDetail();
+  await Promise.all([openDayPanel(state.currentDate), renderCalendar()]);
+});
 
 /* ---------------- คลินิกประจำวัน (แสดง + แก้ไข) ---------------- */
 
@@ -283,7 +345,7 @@ function renderClinicEditor(clinic) {
   document.getElementById('clinicNoteInput').value = (clinic && !clinic.fromRule) ? clinic.note : '';
 }
 
-document.getElementById('saveClinicBtn').addEventListener('click', async () => {
+document.getElementById('saveClinicBtn')?.addEventListener('click', async () => {
   const date = state.currentDate;
   const clinicTypeId = document.getElementById('clinicSelect').value;
   const note = document.getElementById('clinicNoteInput').value.trim();
@@ -349,9 +411,11 @@ function openSpecialModal(date) {
   document.getElementById('specialDate').value = date;
   document.getElementById('specialError').textContent = '';
   document.getElementById('specialForm').reset();
-  document.getElementById('specialStart').value = '08:30';
-  document.getElementById('specialEnd').value = '16:30';
-  document.getElementById('specialSlotMinutes').value = 30;
+  // ใช้เวลาเปิด-ปิดปกติของวันนี้ (ตามตารางประจำสัปดาห์) เป็นค่าตั้งต้น ถ้ามี จะได้ไม่ต้องพิมพ์เอง
+  const weekly = state.currentDayDetail && state.currentDayDetail.weeklySchedule;
+  document.getElementById('specialStart').value = (weekly && weekly.openTime) || '08:30';
+  document.getElementById('specialEnd').value = (weekly && weekly.closeTime) || '16:30';
+  document.getElementById('specialSlotMinutes').value = (weekly && weekly.slotMinutes) || 30;
   specialModal.classList.remove('hidden');
   specialModalBackdrop.classList.remove('hidden');
 }
@@ -359,10 +423,10 @@ function closeSpecialModal() {
   specialModal.classList.add('hidden');
   specialModalBackdrop.classList.add('hidden');
 }
-document.getElementById('specialCancelBtn').addEventListener('click', closeSpecialModal);
-specialModalBackdrop.addEventListener('click', closeSpecialModal);
+document.getElementById('specialCancelBtn')?.addEventListener('click', closeSpecialModal);
+specialModalBackdrop?.addEventListener('click', closeSpecialModal);
 
-document.getElementById('specialForm').addEventListener('submit', async (e) => {
+document.getElementById('specialForm')?.addEventListener('submit', async (e) => {
   e.preventDefault();
   const date = document.getElementById('specialDate').value;
 
@@ -416,10 +480,10 @@ function closeApptModal() {
   apptModal.classList.add('hidden');
   apptModalBackdrop.classList.add('hidden');
 }
-document.getElementById('apptCancelBtn').addEventListener('click', closeApptModal);
-apptModalBackdrop.addEventListener('click', closeApptModal);
+document.getElementById('apptCancelBtn')?.addEventListener('click', closeApptModal);
+apptModalBackdrop?.addEventListener('click', closeApptModal);
 
-document.getElementById('apptForm').addEventListener('submit', async (e) => {
+document.getElementById('apptForm')?.addEventListener('submit', async (e) => {
   e.preventDefault();
   const date = document.getElementById('apptDate').value;
   const startTime = document.getElementById('apptStart').value;
@@ -456,7 +520,7 @@ document.getElementById('apptForm').addEventListener('submit', async (e) => {
 const busyModal = document.getElementById('busyModal');
 const busyModalBackdrop = document.getElementById('busyModalBackdrop');
 
-document.getElementById('physioBusyBtn').addEventListener('click', () => {
+document.getElementById('physioBusyBtn')?.addEventListener('click', () => {
   document.getElementById('busyDate').value = state.currentDate;
   document.getElementById('busyForm').reset();
   document.getElementById('busyError').textContent = '';
@@ -467,10 +531,10 @@ function closeBusyModal() {
   busyModal.classList.add('hidden');
   busyModalBackdrop.classList.add('hidden');
 }
-document.getElementById('busyCancelBtn').addEventListener('click', closeBusyModal);
-busyModalBackdrop.addEventListener('click', closeBusyModal);
+document.getElementById('busyCancelBtn')?.addEventListener('click', closeBusyModal);
+busyModalBackdrop?.addEventListener('click', closeBusyModal);
 
-document.getElementById('busyForm').addEventListener('submit', async (e) => {
+document.getElementById('busyForm')?.addEventListener('submit', async (e) => {
   e.preventDefault();
   const date = document.getElementById('busyDate').value;
 
@@ -508,7 +572,10 @@ async function loadSettings() {
   if (closedRes.ok) renderClosedList(closedRes.data);
   if (clinicRes.ok) { state.clinicTypes = clinicRes.data; renderClinicTypesList(clinicRes.data); renderRuleClinicSelect(clinicRes.data); }
   if (ruleRes.ok) renderClinicRulesList(ruleRes.data);
+  state.settingsLoaded = true;
 }
+
+document.getElementById('refreshSettingsBtn')?.addEventListener('click', loadSettings);
 
 function renderScheduleForm(rows) {
   const box = document.getElementById('scheduleForm');
@@ -531,7 +598,7 @@ function renderScheduleForm(rows) {
   });
 }
 
-document.getElementById('saveScheduleBtn').addEventListener('click', async (e) => {
+document.getElementById('saveScheduleBtn')?.addEventListener('click', async (e) => {
   const btn = e.target;
   const originalText = btn.textContent;
   btn.disabled = true;
@@ -570,11 +637,17 @@ function renderClosedList(rows) {
   });
 }
 
-document.getElementById('closedDateForm').addEventListener('submit', async (e) => {
+document.getElementById('closedDateForm')?.addEventListener('submit', async (e) => {
   e.preventDefault();
   const date = document.getElementById('closedDateInput').value;
   const reason = document.getElementById('closedReasonInput').value.trim();
+  const submitBtn = e.target.querySelector('button[type="submit"]');
+  const originalText = submitBtn.textContent;
+  submitBtn.disabled = true;
+  submitBtn.textContent = 'กำลังบันทึก...';
   const res = await api('addClosedDate', { date, reason });
+  submitBtn.disabled = false;
+  submitBtn.textContent = originalText;
   if (!res.ok) { toast(res.error); return; }
   document.getElementById('closedDateForm').reset();
   loadSettings();
@@ -603,11 +676,17 @@ function renderClinicTypesList(rows) {
   });
 }
 
-document.getElementById('clinicTypeForm').addEventListener('submit', async (e) => {
+document.getElementById('clinicTypeForm')?.addEventListener('submit', async (e) => {
   e.preventDefault();
   const name = document.getElementById('clinicTypeName').value.trim();
   const color = document.getElementById('clinicTypeColor').value;
+  const submitBtn = e.target.querySelector('button[type="submit"]');
+  const originalText = submitBtn.textContent;
+  submitBtn.disabled = true;
+  submitBtn.textContent = 'กำลังบันทึก...';
   const res = await api('addClinicType', { name, color });
+  submitBtn.disabled = false;
+  submitBtn.textContent = originalText;
   if (!res.ok) { toast(res.error); return; }
   document.getElementById('clinicTypeForm').reset();
   document.getElementById('clinicTypeColor').value = '#2B6E63';
@@ -647,14 +726,24 @@ function renderClinicRulesList(rows) {
   });
 }
 
-document.getElementById('clinicRuleForm').addEventListener('submit', async (e) => {
+document.getElementById('clinicRuleForm')?.addEventListener('submit', async (e) => {
   e.preventDefault();
   const clinicTypeId = document.getElementById('ruleClinicSelect').value;
   const weekday = document.getElementById('ruleWeekday').value;
   const nth = document.getElementById('ruleNth').value;
   const note = document.getElementById('ruleNote').value.trim();
   if (!clinicTypeId) { toast('กรุณาเพิ่มประเภทคลินิกก่อน'); return; }
+
+  const submitBtn = e.target.querySelector('button[type="submit"]');
+  const originalText = submitBtn.textContent;
+  submitBtn.disabled = true;
+  submitBtn.textContent = 'กำลังบันทึก...';
+
   const res = await api('addClinicRule', { clinicTypeId, weekday, nth, note });
+
+  submitBtn.disabled = false;
+  submitBtn.textContent = originalText;
+
   if (!res.ok) { toast(res.error); return; }
   document.getElementById('clinicRuleForm').reset();
   toast('เพิ่มกฎอัตโนมัติแล้ว');
