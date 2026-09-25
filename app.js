@@ -18,13 +18,40 @@ const state = {
 
 /* ---------------- API helper (ใช้ JSONP เพื่อเลี่ยงปัญหา CORS ของ Apps Script) ---------------- */
 
+const JSONP_TIMEOUT_MS = 20000; // ถ้าเกิน 20 วิไม่มีการตอบกลับ ถือว่าเชื่อมต่อไม่สำเร็จ ไม่ปล่อยให้ค้างเงียบๆ ไม่มีที่สิ้นสุด
+
 function jsonp_(action, payload) {
   return new Promise((resolve, reject) => {
     const callbackName = 'cb_' + Date.now() + '_' + Math.floor(Math.random() * 1e6);
     const script = document.createElement('script');
-    const cleanup = () => { delete window[callbackName]; script.remove(); };
-    window[callbackName] = (data) => { cleanup(); resolve(data); };
-    script.onerror = () => { cleanup(); reject(new Error('network error')); };
+    let settled = false;
+
+    const cleanup = () => {
+      clearTimeout(timer);
+      delete window[callbackName];
+      script.remove();
+    };
+
+    const timer = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      reject(new Error('timeout'));
+    }, JSONP_TIMEOUT_MS);
+
+    window[callbackName] = (data) => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      resolve(data);
+    };
+    script.onerror = () => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      reject(new Error('network error'));
+    };
+
     const url = `${API_URL}?action=${encodeURIComponent(action)}&payload=${encodeURIComponent(JSON.stringify(payload))}&callback=${callbackName}`;
     script.src = url;
     document.body.appendChild(script);
@@ -37,7 +64,7 @@ async function api(action, payload = {}) {
   try {
     data = await jsonp_(action, payload);
   } catch (e) {
-    return { ok: false, error: 'เชื่อมต่อระบบไม่สำเร็จ กรุณาลองใหม่' };
+    return { ok: false, error: 'เชื่อมต่อไม่สำเร็จ (หมดเวลารอ) กรุณาลองใหม่อีกครั้ง' };
   }
   if (!data.ok && data.error === 'กรุณาเข้าสู่ระบบใหม่') {
     logout();
@@ -202,7 +229,8 @@ async function renderCalendar() {
   });
 
   // ดึงเดือนก่อนหน้า/ถัดไปดักไว้เงียบๆ เบื้องหลัง เพื่อให้กดเปลี่ยนเดือนครั้งถัดไปไวขึ้นทันที
-  prefetchAdjacentMonths_();
+  // หน่วงไว้สักครู่ก่อน จะได้ไม่ไปแย่งคิวกับคำขอของเดือนปัจจุบันที่ผู้ใช้กำลังรออยู่
+  setTimeout(() => { if (reqId === _calendarReqId_) prefetchAdjacentMonths_(); }, 1500);
 }
 
 function prefetchAdjacentMonths_() {
@@ -604,11 +632,14 @@ async function loadSettings() {
   const [schedRes, closedRes, clinicRes, ruleRes] = await Promise.all([
     api('getSchedule'), api('getClosedDates'), api('getClinicTypes'), api('getClinicRules')
   ]); // เรียกพร้อมกัน ลดเวลารอ
-  if (schedRes.ok) renderScheduleForm(schedRes.data);
-  if (closedRes.ok) renderClosedList(closedRes.data);
-  if (clinicRes.ok) { state.clinicTypes = clinicRes.data; renderClinicTypesList(clinicRes.data); renderRuleClinicSelect(clinicRes.data); }
-  if (ruleRes.ok) renderClinicRulesList(ruleRes.data);
-  state.settingsLoaded = true;
+
+  if (schedRes.ok) renderScheduleForm(schedRes.data); else toast('โหลดเวลาเปิด-ปิดไม่สำเร็จ: ' + schedRes.error);
+  if (closedRes.ok) renderClosedList(closedRes.data); else toast('โหลดวันปิดไม่สำเร็จ: ' + closedRes.error);
+  if (clinicRes.ok) { state.clinicTypes = clinicRes.data; renderClinicTypesList(clinicRes.data); renderRuleClinicSelect(clinicRes.data); } else toast('โหลดประเภทคลินิกไม่สำเร็จ: ' + clinicRes.error);
+  if (ruleRes.ok) renderClinicRulesList(ruleRes.data); else toast('โหลดกฎคลินิกไม่สำเร็จ: ' + ruleRes.error);
+
+  // ให้โหลดใหม่อัตโนมัติได้อีกครั้งถ้ารอบนี้มีบางส่วนล้มเหลว (ไม่ล็อกว่า "โหลดแล้ว" ทั้งที่ข้อมูลไม่ครบ)
+  state.settingsLoaded = schedRes.ok && closedRes.ok && clinicRes.ok && ruleRes.ok;
 }
 
 document.getElementById('refreshSettingsBtn')?.addEventListener('click', loadSettings);
