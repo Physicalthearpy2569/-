@@ -298,6 +298,7 @@ label {
 .day-cell.has-clinic { border-top: 3px solid var(--clinic-color, transparent); }
 
 .calendar-grid.loading { opacity: 0.5; pointer-events: none; }
+.calendar-loading-msg { grid-column: 1 / -1; text-align: center; padding: 60px 0; color: var(--ink-soft); font-size: 14px; }
 
 /* ---------------- Settings ---------------- */
 
@@ -322,17 +323,41 @@ label {
   border: 1px solid rgba(0,0,0,0.15);
 }
 
-.schedule-row {
-  display: grid;
-  grid-template-columns: 90px auto 1fr 1fr 90px;
-  gap: 10px;
-  align-items: center;
-  padding: 8px 0;
+.weekday-block {
+  padding: 12px 0;
   border-bottom: 1px solid var(--line);
-  font-size: 13px;
 }
-.schedule-row:last-child { border-bottom: none; }
-.schedule-row label { margin: 0; flex-direction: row; align-items: center; gap: 6px; }
+.weekday-block:last-child { border-bottom: none; }
+
+.weekday-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-weight: 600;
+  font-size: 14px;
+  margin-bottom: 8px;
+}
+.weekday-header label { display: flex; align-items: center; gap: 6px; font-weight: 400; font-size: 13px; color: var(--ink-soft); }
+
+.slot-editor-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 8px; }
+.slot-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.slot-row input[type="time"] { width: auto; flex: 1 1 110px; }
+.slot-row span { color: var(--ink-soft); }
+.remove-slot-btn {
+  color: var(--danger);
+  font-size: 18px;
+  line-height: 1;
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  border-radius: 6px;
+}
+.remove-slot-btn:hover { background: var(--bg); }
+.add-slot-btn { font-size: 13px; padding: 6px 12px; }
 
 .inline-form {
   display: flex;
@@ -553,4 +578,5 @@ label {
   .modal { width: 92vw; max-height: 86vh; overflow-y: auto; }
   .rule-form select, .rule-form input[type="text"] { min-width: 100%; flex-basis: 100%; }
   .schedule-row { grid-template-columns: 70px auto 1fr 1fr 70px; font-size: 12px; gap: 6px; }
+  .slot-row input[type="time"] { flex-basis: 90px; }
 }
