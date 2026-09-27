@@ -171,6 +171,7 @@ async function renderCalendar() {
 
   const grid = document.getElementById('calendarGrid');
   grid.classList.add('loading');
+  if (!grid.children.length) grid.innerHTML = '<div class="calendar-loading-msg">กำลังโหลดปฏิทิน...</div>';
 
   const res = await fetchCalendarMonth_(state.year, state.month);
 
@@ -471,15 +472,35 @@ function renderDayToggleActions(dayDetail) {
 const specialModal = document.getElementById('specialModal');
 const specialModalBackdrop = document.getElementById('specialModalBackdrop');
 
+/** สร้างแถวช่วงเวลา 1 แถว (ใช้ร่วมกันทั้งในหน้าตั้งค่าและโมดัลเปิดรับพิเศษ) */
+function makeSlotRow_(start, end) {
+  const row = document.createElement('div');
+  row.className = 'slot-row';
+  row.innerHTML = `
+    <input type="time" class="slot-start" value="${start || ''}" />
+    <span>–</span>
+    <input type="time" class="slot-end" value="${end || ''}" />
+    <button type="button" class="remove-slot-btn" title="ลบช่วงนี้">×</button>
+  `;
+  row.querySelector('.remove-slot-btn').addEventListener('click', () => row.remove());
+  return row;
+}
+
 function openSpecialModal(date) {
   document.getElementById('specialDate').value = date;
   document.getElementById('specialError').textContent = '';
-  document.getElementById('specialForm').reset();
-  // ใช้เวลาเปิด-ปิดปกติของวันนี้ (ตามตารางประจำสัปดาห์) เป็นค่าตั้งต้น ถ้ามี จะได้ไม่ต้องพิมพ์เอง
-  const weekly = state.currentDayDetail && state.currentDayDetail.weeklySchedule;
-  document.getElementById('specialStart').value = (weekly && weekly.openTime) || '08:30';
-  document.getElementById('specialEnd').value = (weekly && weekly.closeTime) || '16:30';
-  document.getElementById('specialSlotMinutes').value = (weekly && weekly.slotMinutes) || 30;
+  document.getElementById('specialNote').value = '';
+
+  const list = document.getElementById('specialSlotList');
+  list.innerHTML = '';
+  // ใช้ช่วงเวลาปกติของวันในสัปดาห์นี้เป็นค่าตั้งต้น ถ้ามี จะได้ไม่ต้องพิมพ์เอง แก้ไข/ลบ/เพิ่มได้อิสระ
+  const weekly = (state.currentDayDetail && state.currentDayDetail.weeklySlots) || [];
+  if (weekly.length) {
+    weekly.forEach(s => list.appendChild(makeSlotRow_(s.start, s.end)));
+  } else {
+    list.appendChild(makeSlotRow_('08:30', '16:30'));
+  }
+
   specialModal.classList.remove('hidden');
   specialModalBackdrop.classList.remove('hidden');
 }
@@ -489,10 +510,21 @@ function closeSpecialModal() {
 }
 document.getElementById('specialCancelBtn')?.addEventListener('click', closeSpecialModal);
 specialModalBackdrop?.addEventListener('click', closeSpecialModal);
+document.getElementById('specialAddSlotBtn')?.addEventListener('click', () => {
+  document.getElementById('specialSlotList').appendChild(makeSlotRow_('', ''));
+});
 
 document.getElementById('specialForm')?.addEventListener('submit', async (e) => {
   e.preventDefault();
   const date = document.getElementById('specialDate').value;
+
+  const slots = [];
+  document.querySelectorAll('#specialSlotList .slot-row').forEach(row => {
+    const start = row.querySelector('.slot-start').value;
+    const end = row.querySelector('.slot-end').value;
+    if (start && end) slots.push({ start, end });
+  });
+  if (!slots.length) { document.getElementById('specialError').textContent = 'กรุณาระบุช่วงเวลาอย่างน้อย 1 ช่วง'; return; }
 
   const submitBtn = e.target.querySelector('button[type="submit"]');
   const originalText = submitBtn.textContent;
@@ -501,9 +533,7 @@ document.getElementById('specialForm')?.addEventListener('submit', async (e) => 
 
   const res = await api('addSpecialOpen', {
     date,
-    openTime: document.getElementById('specialStart').value,
-    closeTime: document.getElementById('specialEnd').value,
-    slotMinutes: Number(document.getElementById('specialSlotMinutes').value),
+    slots,
     note: document.getElementById('specialNote').value.trim()
   });
 
@@ -644,24 +674,49 @@ async function loadSettings() {
 
 document.getElementById('refreshSettingsBtn')?.addEventListener('click', loadSettings);
 
-function renderScheduleForm(rows) {
+function renderScheduleForm(data) {
   const box = document.getElementById('scheduleForm');
   box.innerHTML = '';
+  const days = data.days || [];
+  const allSlots = data.slots || [];
   // เรียงจันทร์(1)-ศุกร์(5) ก่อน แล้วค่อยเสาร์(6)-อาทิตย์(0)
   const order = [1, 2, 3, 4, 5, 6, 0];
   order.forEach(dayNum => {
-    const row = rows.find(r => Number(r.day) === dayNum) || { day: dayNum, isOpen: false, openTime: '08:30', closeTime: '16:30', slotMinutes: 30 };
-    const div = document.createElement('div');
-    div.className = 'schedule-row';
+    const dayRow = days.find(r => Number(r.day) === dayNum) || { day: dayNum, isOpen: dayNum >= 1 && dayNum <= 5 };
     const isWeekendFixed = dayNum === 0 || dayNum === 6;
-    div.innerHTML = `
+    const daySlots = allSlots
+      .filter(s => Number(s.weekday) === dayNum)
+      .sort((a, b) => a.startTime < b.startTime ? -1 : 1);
+
+    const block = document.createElement('div');
+    block.className = 'weekday-block';
+    block.dataset.day = dayNum;
+
+    const header = document.createElement('div');
+    header.className = 'weekday-header';
+    header.innerHTML = `
       <span>${DAY_LABELS[dayNum]}</span>
-      <label><input type="checkbox" data-day="${dayNum}" class="sched-open" ${row.isOpen ? 'checked' : ''} ${isWeekendFixed ? 'disabled title="เสาร์-อาทิตย์ปิดโดยอัตโนมัติ"' : ''}/> เปิด</label>
-      <input type="time" class="sched-start" data-day="${dayNum}" value="${row.openTime || '08:30'}" ${isWeekendFixed ? 'disabled' : ''}/>
-      <input type="time" class="sched-end" data-day="${dayNum}" value="${row.closeTime || '16:30'}" ${isWeekendFixed ? 'disabled' : ''}/>
-      <input type="number" class="sched-slot" data-day="${dayNum}" min="10" step="5" value="${row.slotMinutes || 30}" title="นาที/ช่อง" ${isWeekendFixed ? 'disabled' : ''}/>
+      <label><input type="checkbox" class="sched-open" ${dayRow.isOpen ? 'checked' : ''} ${isWeekendFixed ? 'disabled title="เสาร์-อาทิตย์ปิดโดยอัตโนมัติ"' : ''}/> เปิด</label>
     `;
-    box.appendChild(div);
+    block.appendChild(header);
+
+    if (!isWeekendFixed) {
+      const list = document.createElement('div');
+      list.className = 'slot-editor-list';
+      if (daySlots.length) {
+        daySlots.forEach(s => list.appendChild(makeSlotRow_(s.startTime, s.endTime)));
+      }
+      block.appendChild(list);
+
+      const addBtn = document.createElement('button');
+      addBtn.type = 'button';
+      addBtn.className = 'secondary add-slot-btn';
+      addBtn.textContent = '+ เพิ่มช่วงเวลา';
+      addBtn.addEventListener('click', () => list.appendChild(makeSlotRow_('', '')));
+      block.appendChild(addBtn);
+    }
+
+    box.appendChild(block);
   });
 }
 
@@ -670,18 +725,27 @@ document.getElementById('saveScheduleBtn')?.addEventListener('click', async (e) 
   const originalText = btn.textContent;
   btn.disabled = true;
   btn.textContent = 'กำลังบันทึก...';
-  const days = [0,1,2,3,4,5,6].map(dayNum => ({
-    day: dayNum,
-    isOpen: dayNum === 0 || dayNum === 6 ? false : document.querySelector(`.sched-open[data-day="${dayNum}"]`).checked,
-    openTime: document.querySelector(`.sched-start[data-day="${dayNum}"]`)?.value || '',
-    closeTime: document.querySelector(`.sched-end[data-day="${dayNum}"]`)?.value || '',
-    slotMinutes: Number(document.querySelector(`.sched-slot[data-day="${dayNum}"]`)?.value || 30)
-  }));
-  const res = await api('setSchedule', { days });
+
+  const days = [];
+  const slots = [];
+  document.querySelectorAll('.weekday-block').forEach(block => {
+    const dayNum = Number(block.dataset.day);
+    const isWeekendFixed = dayNum === 0 || dayNum === 6;
+    const checkbox = block.querySelector('.sched-open');
+    days.push({ day: dayNum, isOpen: isWeekendFixed ? false : checkbox.checked });
+
+    block.querySelectorAll('.slot-row').forEach(row => {
+      const start = row.querySelector('.slot-start').value;
+      const end = row.querySelector('.slot-end').value;
+      if (start && end) slots.push({ weekday: dayNum, start, end });
+    });
+  });
+
+  const res = await api('setSchedule', { days, slots });
   btn.disabled = false;
   btn.textContent = originalText;
   if (!res.ok) { toast(res.error); return; }
-  toast('บันทึกเวลาเปิด-ปิดแล้ว');
+  toast('บันทึกช่วงเวลานัดแล้ว');
   renderCalendar();
 });
 
