@@ -58,11 +58,12 @@
             <span class="legend-item"><i class="dot community"></i>ลงชุมชน</span>
             <span class="legend-item"><i class="dot busy"></i>ไม่ว่าง</span>
             <span class="legend-item"><i class="dot special"></i>เปิดพิเศษ</span>
+            <span class="legend-item"><i class="dot full"></i>เต็ม</span>
             <span class="legend-item"><i class="dot closed"></i>ปิดทำการ</span>
           </div>
         </header>
         <div class="weekday-row">
-          <span>จ</span><span>อ</span><span>พ</span><span>พฤ</span><span>ศ</span><span>ส</span><span>อา</span>
+          <span data-full="จันทร์" data-short="จ"></span><span data-full="อังคาร" data-short="อ"></span><span data-full="พุธ" data-short="พ"></span><span data-full="พฤหัสบดี" data-short="พฤ"></span><span data-full="ศุกร์" data-short="ศ"></span><span data-full="เสาร์" data-short="ส"></span><span data-full="อาทิตย์" data-short="อา"></span>
         </div>
         <div id="calendarGrid" class="calendar-grid"></div>
       </section>
@@ -267,6 +268,7 @@
     <h3>รายละเอียดนัดหมาย</h3>
     <div id="apptDetailBody" class="detail-body"></div>
     <div class="modal-actions">
+      <button type="button" class="primary physio-only" id="apptDetailAttendBtn">บันทึกว่ามาทำกายภาพแล้ว ✓</button>
       <button type="button" class="secondary" id="apptDetailCloseBtn">ปิด</button>
       <button type="button" class="secondary" id="apptDetailCancelBtn" style="color:#B3452F;">ยกเลิกนัดนี้</button>
     </div>
