@@ -71,7 +71,7 @@ async function api(action, payload = {}) {
   }
   // การกระทำใดๆ ที่ไม่ใช่ "get..." ถือว่าเป็นการแก้ไขข้อมูล ต้องล้างแคชปฏิทินที่ดักไว้ล่วงหน้าทันที
   // มิเช่นนั้นจะเห็นข้อมูลเก่าค้างอยู่หลังบันทึก/ยกเลิก/แก้ไขต่างๆ
-  if (data.ok && action !== 'login' && action.indexOf('get') !== 0) {
+  if (data.ok && action !== 'login' && action !== 'markAttended' && action.indexOf('get') !== 0) {
     Object.keys(_calendarPrefetchCache_).forEach(k => delete _calendarPrefetchCache_[k]);
   }
   return data;
@@ -197,9 +197,22 @@ async function renderCalendar() {
     grid.appendChild(blank);
   }
 
+  const now = new Date();
+  const pad2 = n => String(n).padStart(2, '0');
+  const todayStr = `${now.getFullYear()}-${pad2(now.getMonth() + 1)}-${pad2(now.getDate())}`;
+
+  // ไฮไลต์ชื่อวันในหัวตารางของ "วันนี้" (เฉพาะตอนที่กำลังดูเดือนปัจจุบัน)
+  document.querySelectorAll('.weekday-row span').forEach((el, i) => {
+    const isTodayCol = state.year === now.getFullYear() && state.month === now.getMonth() + 1 && i === (now.getDay() + 6) % 7;
+    el.classList.toggle('today-col', isTodayCol);
+  });
+
   res.data.forEach(day => {
     const cell = document.createElement('div');
-    cell.className = 'day-cell' + (day.isClosed ? ' closed' : '') + (day.clinicColor ? ' has-clinic' : '');
+    const isToday = day.date === todayStr;
+    const isFull = !day.isClosed && day.slotsTotal > 0 && day.slotsAvailable === 0;
+    cell.className = 'day-cell' + (day.isClosed ? ' closed' : '') + (day.clinicColor ? ' has-clinic' : '') +
+      (isToday ? ' today' : '') + (isFull ? ' full' : '');
     if (day.clinicColor) cell.style.setProperty('--clinic-color', day.clinicColor);
     const dayNum = Number(day.date.split('-')[2]);
 
@@ -209,7 +222,9 @@ async function renderCalendar() {
 
     const badges = [];
     if (day.isSpecialOpen) badges.push(`<span class="badge special-tag">เปิดพิเศษ</span>`);
-    if (!day.isClosed && day.slotsAvailable !== null && day.slotsAvailable !== undefined) {
+    if (isFull) {
+      badges.push(`<span class="badge full-tag">เต็ม</span>`);
+    } else if (!day.isClosed && day.slotsAvailable !== null && day.slotsAvailable !== undefined) {
       badges.push(`<span class="badge avail-tag">ว่างอีก ${day.slotsAvailable}</span>`);
     }
     if (day.opdCount) badges.push(`<span class="badge opd">OPD ${day.opdCount}</span>`);
@@ -221,7 +236,7 @@ async function renderCalendar() {
       badges.push(`<span class="badge closed-tag">ปิด${day.closedReason ? ': ' + day.closedReason : ''}</span>`);
     }
 
-    cell.innerHTML = `${clinicLine}<div class="day-num">${dayNum}</div><div class="day-badges">${badges.join('')}</div>`;
+    cell.innerHTML = `${clinicLine}<div class="day-head"><div class="day-num">${dayNum}</div>${isToday ? '<span class="today-tag">วันนี้</span>' : ''}</div><div class="day-badges">${badges.join('')}</div>`;
     // นักกายภาพคลิกวันปิดได้ด้วย เพื่อใช้ปุ่ม "เปิดรับพิเศษวันนี้"; เจ้าหน้าที่นัดคลิกได้เฉพาะวันเปิด
     if (!day.isClosed || state.role === 'physio') {
       cell.addEventListener('click', () => openDayPanel(day.date));
@@ -304,25 +319,39 @@ function renderApptList(appts) {
   list.innerHTML = '';
   if (!appts.length) { list.innerHTML = '<li style="border:none;color:var(--ink-soft);">ยังไม่มีนัดหมาย</li>'; return; }
   state.currentAppts = appts; // เก็บไว้ใช้เปิดดูรายละเอียด
+  const isPhysio = state.role === 'physio';
   appts.forEach(a => {
     const li = document.createElement('li');
     li.dataset.viewId = a.id;
     li.style.cursor = 'pointer';
+    if (a.attendedAt) li.classList.add('attended');
+
+    // ปุ่มด้านล่างของแต่ละนัด: มาแล้ว (นักกายภาพ) / ยกเลิกนัด (เฉพาะที่ยังไม่มา)
+    let actions = '';
+    if (a.attendedAt) {
+      if (isPhysio) actions += `<button class="appt-unattend" data-id="${a.id}">ยกเลิกการบันทึก "มาแล้ว"</button>`;
+    } else {
+      if (isPhysio) actions += `<button class="appt-attend" data-id="${a.id}">มาแล้ว ✓</button>`;
+      actions += `<button class="appt-cancel" data-id="${a.id}">ยกเลิกนัด</button>`;
+    }
+
     li.innerHTML = `
       <div><span class="appt-time">${a.startTime}-${a.endTime}</span>${a.firstName} ${a.lastName}
-        <span class="badge ${a.type === 'OPD' ? 'opd' : 'community'}">${a.type}</span></div>
+        <span class="badge ${a.type === 'OPD' ? 'opd' : 'community'}">${a.type}</span>
+        ${a.attendedAt ? '<span class="badge attended-tag">มาแล้ว ✓</span>' : ''}</div>
       <div style="color:var(--ink-soft);font-size:12px;">หมู่ ${a.moo}${a.phone ? ' · โทร ' + a.phone : ''}</div>
-      <button class="appt-cancel" data-id="${a.id}">ยกเลิกนัด</button>
-      <div style="clear:both"></div>`;
+      ${actions ? `<div class="appt-actions">${actions}</div>` : ''}`;
     list.appendChild(li);
   });
+
   list.querySelectorAll('li[data-view-id]').forEach(li => {
     li.addEventListener('click', (e) => {
-      if (e.target.closest('.appt-cancel')) return; // กดปุ่มยกเลิก ไม่ต้องเปิดรายละเอียด
+      if (e.target.closest('button')) return; // กดปุ่มในรายการ ไม่ต้องเปิดรายละเอียด
       const appt = state.currentAppts.find(a => a.id === li.dataset.viewId);
       if (appt) openApptDetail(appt);
     });
   });
+
   list.querySelectorAll('.appt-cancel').forEach(btn => {
     btn.addEventListener('click', async () => {
       if (!confirm('ยืนยันยกเลิกนัดนี้?')) return;
@@ -334,12 +363,29 @@ function renderApptList(appts) {
       await Promise.all([openDayPanel(state.currentDate), renderCalendar()]); // เรียกพร้อมกัน ลดเวลารอ
     });
   });
+
+  // บันทึก/ยกเลิกการบันทึกว่า "มาทำกายภาพแล้ว" (ไม่กระทบปฏิทิน จึงรีเฟรชแค่แผงรายละเอียดวัน)
+  list.querySelectorAll('.appt-attend, .appt-unattend').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const attended = btn.classList.contains('appt-attend');
+      btn.disabled = true;
+      const res = await api('markAttended', { id: btn.dataset.id, attended });
+      if (!res.ok) { toast(res.error); btn.disabled = false; return; }
+      toast(attended ? 'บันทึกว่ามาทำกายภาพแล้ว' : 'ยกเลิกการบันทึกแล้ว');
+      await openDayPanel(state.currentDate);
+    });
+  });
 }
 
 /* ---------------- ดูรายละเอียดนัดหมาย ---------------- */
 
 const apptDetailModal = document.getElementById('apptDetailModal');
 const apptDetailModalBackdrop = document.getElementById('apptDetailModalBackdrop');
+
+function fmtDateTime_(v) {
+  const d = new Date(v);
+  return isNaN(d) ? String(v) : d.toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' });
+}
 
 function openApptDetail(a) {
   const rows = [
@@ -350,12 +396,25 @@ function openApptDetail(a) {
     ['เบอร์โทร', a.phone || '-'],
     ['เลขบัตรประชาชน', a.nationalId || '-'],
     ['หมายเหตุ', a.note || '-'],
-    ['บันทึกโดย', a.createdBy || '-']
+    ['สถานะ', a.attendedAt ? `มาทำกายภาพแล้ว (${fmtDateTime_(a.attendedAt)})` : 'ยังไม่ได้บันทึกว่ามา'],
+    ['บันทึกนัดโดย', a.createdBy || '-']
   ];
   document.getElementById('apptDetailBody').innerHTML = rows.map(([label, value]) =>
     `<div class="detail-row"><span class="detail-label">${label}</span><span class="detail-value">${value}</span></div>`
   ).join('');
-  document.getElementById('apptDetailCancelBtn').dataset.id = a.id;
+
+  const cancelBtn = document.getElementById('apptDetailCancelBtn');
+  cancelBtn.dataset.id = a.id;
+  cancelBtn.style.display = a.attendedAt ? 'none' : ''; // มาแล้วห้ามยกเลิกนัด (ต้องยกเลิกการบันทึกก่อน)
+
+  const attendBtn = document.getElementById('apptDetailAttendBtn');
+  if (attendBtn) {
+    attendBtn.dataset.id = a.id;
+    attendBtn.dataset.attended = a.attendedAt ? '1' : '';
+    attendBtn.textContent = a.attendedAt ? 'ยกเลิกการบันทึก "มาแล้ว"' : 'บันทึกว่ามาทำกายภาพแล้ว ✓';
+    attendBtn.className = (a.attendedAt ? 'secondary' : 'primary') + ' physio-only';
+  }
+
   apptDetailModal?.classList.remove('hidden');
   apptDetailModalBackdrop?.classList.remove('hidden');
 }
@@ -364,6 +423,17 @@ function closeApptDetail() {
   apptDetailModalBackdrop?.classList.add('hidden');
 }
 document.getElementById('apptDetailCloseBtn')?.addEventListener('click', closeApptDetail);
+document.getElementById('apptDetailAttendBtn')?.addEventListener('click', async (e) => {
+  const btn = e.currentTarget;
+  const attended = !btn.dataset.attended; // ตอนนี้ยังไม่มา -> บันทึกว่ามา / ตอนนี้มาแล้ว -> ยกเลิกการบันทึก
+  btn.disabled = true;
+  const res = await api('markAttended', { id: btn.dataset.id, attended });
+  btn.disabled = false;
+  if (!res.ok) { toast(res.error); return; }
+  toast(attended ? 'บันทึกว่ามาทำกายภาพแล้ว' : 'ยกเลิกการบันทึกแล้ว');
+  closeApptDetail();
+  await openDayPanel(state.currentDate);
+});
 apptDetailModalBackdrop?.addEventListener('click', closeApptDetail);
 document.getElementById('apptDetailCancelBtn')?.addEventListener('click', async (e) => {
   if (!confirm('ยืนยันยกเลิกนัดนี้?')) return;
