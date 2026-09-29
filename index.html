@@ -35,6 +35,7 @@
       <div class="brand">รพ.สต. <span>นัดหมาย</span></div>
       <nav>
         <button class="navBtn active" data-view="calendar">ปฏิทินนัดหมาย</button>
+        <button class="navBtn physio-only" data-view="dashboard">สถิติ</button>
         <button class="navBtn physio-only" data-view="settings">ตั้งค่า</button>
       </nav>
       <div class="who">
@@ -66,6 +67,31 @@
           <span data-full="จันทร์" data-short="จ"></span><span data-full="อังคาร" data-short="อ"></span><span data-full="พุธ" data-short="พ"></span><span data-full="พฤหัสบดี" data-short="พฤ"></span><span data-full="ศุกร์" data-short="ศ"></span><span data-full="เสาร์" data-short="ส"></span><span data-full="อาทิตย์" data-short="อา"></span>
         </div>
         <div id="calendarGrid" class="calendar-grid"></div>
+      </section>
+
+      <!-- สถิติ (เฉพาะนักกายภาพ) -->
+      <section id="dashboardView" class="view hidden">
+        <header class="view-head">
+          <h2>สถิติการให้บริการ</h2>
+          <button id="refreshDashboardBtn" class="secondary">รีเฟรช</button>
+        </header>
+
+        <div class="dash-filter">
+          <div class="dash-presets">
+            <button type="button" class="secondary" data-preset="thisMonth">เดือนนี้</button>
+            <button type="button" class="secondary" data-preset="lastMonth">เดือนที่แล้ว</button>
+            <button type="button" class="secondary" data-preset="fiscal">ปีงบประมาณนี้</button>
+            <button type="button" class="secondary" data-preset="year">ปีนี้</button>
+          </div>
+          <div class="dash-range">
+            <input type="date" id="dashFrom" />
+            <span>ถึง</span>
+            <input type="date" id="dashTo" />
+            <button type="button" id="dashApplyBtn" class="primary">ดูสถิติ</button>
+          </div>
+        </div>
+        <p id="dashNote" class="panel-hint"></p>
+        <div id="dashBody"></div>
       </section>
 
       <!-- ตั้งค่า (เฉพาะนักกายภาพ) -->
