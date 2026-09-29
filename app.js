@@ -134,7 +134,9 @@ document.querySelectorAll('.navBtn').forEach(btn => {
     const view = btn.dataset.view;
     document.getElementById('calendarView').classList.toggle('hidden', view !== 'calendar');
     document.getElementById('settingsView').classList.toggle('hidden', view !== 'settings');
+    document.getElementById('dashboardView')?.classList.toggle('hidden', view !== 'dashboard');
     if (view === 'settings' && !state.settingsLoaded) loadSettings();
+    if (view === 'dashboard' && !state.dashboardLoaded) { setDashPreset_('thisMonth'); loadDashboard(); }
   });
 });
 
@@ -954,4 +956,144 @@ document.getElementById('clinicRuleForm')?.addEventListener('submit', async (e) 
 
 /* ---------------- เริ่มระบบ ---------------- */
 // วางไว้ท้ายไฟล์เสมอ เพื่อให้ตัวแปร/ฟังก์ชันทั้งหมด (เช่น MONTH_NAMES) ถูกประกาศครบก่อนเรียกใช้งาน
+/* ---------------- สถิติ (Dashboard) ---------------- */
+
+function ymd_(d) {
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+
+function setDashPreset_(preset) {
+  const now = new Date();
+  let from, to;
+  if (preset === 'thisMonth') {
+    from = new Date(now.getFullYear(), now.getMonth(), 1);
+    to = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+  } else if (preset === 'lastMonth') {
+    from = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    to = new Date(now.getFullYear(), now.getMonth(), 0);
+  } else if (preset === 'fiscal') {
+    // ปีงบประมาณไทย: 1 ต.ค. - 30 ก.ย.
+    const startYear = now.getMonth() >= 9 ? now.getFullYear() : now.getFullYear() - 1;
+    from = new Date(startYear, 9, 1);
+    to = new Date(startYear + 1, 8, 30);
+  } else if (preset === 'year') {
+    from = new Date(now.getFullYear(), 0, 1);
+    to = new Date(now.getFullYear(), 11, 31);
+  } else {
+    return;
+  }
+  document.getElementById('dashFrom').value = ymd_(from);
+  document.getElementById('dashTo').value = ymd_(to);
+  document.querySelectorAll('.dash-presets button').forEach(b => b.classList.toggle('active', b.dataset.preset === preset));
+}
+
+document.querySelectorAll('.dash-presets button').forEach(b => {
+  b.addEventListener('click', () => { setDashPreset_(b.dataset.preset); loadDashboard(); });
+});
+document.getElementById('dashApplyBtn')?.addEventListener('click', () => {
+  document.querySelectorAll('.dash-presets button').forEach(b => b.classList.remove('active'));
+  loadDashboard();
+});
+document.getElementById('refreshDashboardBtn')?.addEventListener('click', loadDashboard);
+
+async function loadDashboard() {
+  const from = document.getElementById('dashFrom').value;
+  const to = document.getElementById('dashTo').value;
+  const note = document.getElementById('dashNote');
+  const body = document.getElementById('dashBody');
+  if (!from || !to) return;
+  if (from > to) { toast('วันที่เริ่มต้องไม่เกินวันที่สิ้นสุด'); return; }
+
+  note.textContent = 'กำลังโหลด...';
+  const res = await api('getDashboard', { from, to });
+  if (!res.ok) { note.textContent = ''; toast(res.error); return; }
+  state.dashboardLoaded = true;
+  renderDashboard(res.data);
+}
+
+function pct_(n, d) { return d ? Math.round((n / d) * 100) : 0; }
+
+function renderDashboard(d) {
+  const note = document.getElementById('dashNote');
+  const t = d.totals;
+  const rateTxt = t.attendanceRate === null ? 'ยังไม่มีข้อมูล' : pct_(t.trackedPast ? Math.round(t.attendanceRate * t.trackedPast) : 0, t.trackedPast) + '%';
+  note.textContent = `ช่วง ${d.from} ถึง ${d.to}` + (d.trackingStart ? ` · เริ่มมีข้อมูล "มาแล้ว" ตั้งแต่ ${d.trackingStart}` : ' · ยังไม่เคยมีการบันทึก "มาแล้ว" เลย');
+
+  const kpis = [
+    { label: 'นัดทั้งหมด (ไม่รวมยกเลิก)', num: t.appointments, cls: 'hero' },
+    { label: 'มารับบริการแล้ว', num: t.attended, sub: pct_(t.attended, t.appointments) + '% ของนัดทั้งหมด' },
+    { label: 'ยังไม่ถึงวันนัด', num: t.upcoming },
+    { label: 'ไม่มาตามนัด', num: t.noShow, sub: t.trackedPast ? `จาก ${t.trackedPast} นัดที่ผ่านไปแล้ว` : 'ยังไม่มีข้อมูลเทียบ' },
+    { label: 'อัตรามาตามนัด', num: rateTxt },
+    { label: 'จำนวนคนไข้ที่มา (ไม่นับซ้ำ)', num: t.patientsSeen, sub: t.repeatPatients ? `มาซ้ำ ${t.repeatPatients} คน` : '' },
+    { label: 'ยกเลิกนัด', num: t.cancelled }
+  ];
+  document.getElementById('dashBody').innerHTML = `
+    <div class="kpi-grid">
+      ${kpis.map(k => `
+        <div class="kpi-card ${k.cls || ''}">
+          <div class="kpi-num">${k.num}</div>
+          <div class="kpi-label">${k.label}</div>
+          ${k.sub ? `<div class="kpi-sub">${k.sub}</div>` : ''}
+        </div>`).join('')}
+    </div>
+    <div class="dash-grid">
+      <div class="dash-panel wide">
+        <h3>แนวโน้มจำนวนนัด${d.granularity === 'day' ? 'รายวัน' : 'รายเดือน'}</h3>
+        <p class="dash-sub">แท่งอ่อน = นัดทั้งหมด · แท่งเขียว = มารับบริการแล้ว</p>
+        ${renderTrend_(d.trend, d.granularity)}
+      </div>
+      <div class="dash-panel">
+        <h3>แยกตามประเภทนัด</h3>
+        ${renderHBars_(d.byType)}
+      </div>
+      <div class="dash-panel">
+        <h3>แยกตามคลินิก</h3>
+        ${renderHBars_(d.byClinic, true)}
+      </div>
+      <div class="dash-panel">
+        <h3>แยกตามหมู่</h3>
+        <p class="dash-sub">เรียงตามจำนวนที่มารับบริการมากสุด</p>
+        ${renderHBars_(d.byMoo.map(m => ({ name: 'หมู่ ' + m.name, total: m.total, attended: m.attended })))}
+      </div>
+      <div class="dash-panel">
+        <h3>แยกตามวันในสัปดาห์</h3>
+        ${renderHBars_(d.byWeekday)}
+      </div>
+    </div>
+  `;
+}
+
+function renderHBars_(rows, useColor) {
+  if (!rows || !rows.length) return '<div class="dash-empty">ไม่มีข้อมูลในช่วงนี้</div>';
+  const max = Math.max(1, ...rows.map(r => r.total));
+  return rows.map(r => `
+    <div class="hbar-row">
+      <span class="hbar-label" title="${r.name}">${r.name}</span>
+      <div class="hbar-track">
+        <div class="hbar-total" style="width:${r.total / max * 100}%"></div>
+        <div class="hbar-attended" style="width:${r.attended / max * 100}%;${useColor && r.color ? `--bar-color:${r.color}` : ''}"></div>
+      </div>
+      <span class="hbar-num">${r.attended}/${r.total}</span>
+    </div>`).join('');
+}
+
+function renderTrend_(trend, granularity) {
+  if (!trend || !trend.length) return '<div class="dash-empty">ไม่มีข้อมูลในช่วงนี้</div>';
+  const max = Math.max(1, ...trend.map(t => t.total));
+  const showEvery = Math.ceil(trend.length / 20); // ป้ายกำกับเยอะไปจะอ่านไม่ออก โชว์เว้นช่วง
+  const labelOf = k => granularity === 'day' ? k.slice(8) : THAI_MONTH_SHORT[Number(k.slice(5, 7)) - 1];
+  return `<div class="trend-chart">${trend.map((t, i) => `
+    <div class="trend-col" title="${t.key}: ${t.attended}/${t.total}">
+      <div class="trend-bars">
+        <div class="trend-total" style="height:${t.total / max * 100}%"></div>
+        <div class="trend-attended" style="height:${t.attended / max * 100}%"></div>
+      </div>
+      <div class="trend-label">${i % showEvery === 0 ? labelOf(t.key) : ''}</div>
+    </div>`).join('')}</div>`;
+}
+
+const THAI_MONTH_SHORT = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
+
+
 if (state.token) enterApp();
