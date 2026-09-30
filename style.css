@@ -282,10 +282,11 @@ label {
 .day-cell.closed:hover { border-color: var(--line); }
 
 .day-head { display: flex; align-items: center; gap: 6px; }
-.day-cell.today { border: 2px solid var(--teal-dark); background: var(--teal-tint); }
+.day-cell.today { border: 2px solid #2E7D32; background: #66BB6A; }
+.day-cell.today .day-num, .day-cell.today .clinic-line { color: #fff !important; }
 .day-cell.today .day-num {
-  background: var(--teal-dark);
-  color: #fff;
+  background: #fff;
+  color: #2E7D32 !important;
   border-radius: 999px;
   min-width: 26px;
   height: 26px;
@@ -294,6 +295,7 @@ label {
   align-items: center;
   justify-content: center;
 }
+.day-cell.today .today-tag { color: #fff; }
 .today-tag { font-size: 10px; font-weight: 700; color: var(--teal-dark); }
 
 /* วันเต็ม: พื้นแดง ตัวอักษรขาว */
@@ -303,7 +305,7 @@ label {
 .day-cell.full .badge { background: rgba(255,255,255,0.22); color: #fff; }
 .day-cell.full .badge.full-tag { background: #fff; color: var(--full); font-weight: 700; }
 .day-cell.full .today-tag { color: #fff; }
-.day-cell.today.full { border-color: #fff; box-shadow: 0 0 0 3px var(--teal-dark); }
+.day-cell.today.full { border-color: #fff; box-shadow: 0 0 0 3px #2E7D32; }
 .day-cell.today.full .day-num { background: #fff; color: var(--full) !important; }
 
 .day-num { font-weight: 600; font-size: 14px; }
@@ -556,6 +558,8 @@ label {
   padding: 26px 28px;
   width: 380px;
   max-width: 92vw;
+  max-height: 88vh;
+  overflow-y: auto;
   z-index: 40;
   box-shadow: 0 20px 50px rgba(0,0,0,0.25);
 }
@@ -682,3 +686,19 @@ label {
   .hbar-row { grid-template-columns: 82px 1fr 56px; gap: 8px; }
   .dash-range input[type="date"] { flex: 1 1 130px; }
 }
+
+/* ---------------- รหัส ICD-10 / ICD-9 ---------------- */
+
+.icd-slots { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
+.icd-slot-row { display: flex; align-items: center; gap: 8px; }
+.icd-slot-label { font-size: 11px; color: var(--ink-soft); width: 20px; flex-shrink: 0; text-align: right; }
+.icd-slot-auto {
+  flex: 1;
+  background: var(--teal-tint);
+  color: var(--teal-dark);
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.icd-slot-row select { width: auto; flex: 1; font-size: 13px; }
