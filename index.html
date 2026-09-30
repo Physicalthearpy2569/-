@@ -156,6 +156,28 @@
           </form>
           <ul id="clinicRuleList" class="tag-list"></ul>
         </div>
+
+        <div class="panel">
+          <h3>รายการรหัส ICD-10</h3>
+          <p class="panel-hint">รหัส <strong>Z501</strong> เป็นรหัสอัตโนมัติหลัก ใส่ให้ทุกนัดเสมอ ลบไม่ได้ — เพิ่มรหัสอื่นไว้เลือกเพิ่มตอนทำนัดได้ที่นี่</p>
+          <form id="icd10Form" class="inline-form">
+            <input type="text" id="icd10Code" placeholder="รหัส เช่น M5450" required style="max-width:120px;" />
+            <input type="text" id="icd10Label" placeholder="คำอธิบาย เช่น ปวดหลังส่วนล่าง" required />
+            <button type="submit">เพิ่มรหัส</button>
+          </form>
+          <ul id="icd10List" class="tag-list"></ul>
+        </div>
+
+        <div class="panel">
+          <h3>รายการรหัส ICD-9</h3>
+          <p class="panel-hint">รหัส <strong>9339</strong> (ประเมินทางกายภาพบำบัด) เป็นรหัสอัตโนมัติหลัก ใส่ให้ทุกนัดเสมอ ลบไม่ได้ — เพิ่มรหัสหัตถการอื่นไว้เลือกเพิ่มตอนทำนัดได้ที่นี่ (เลือกได้สูงสุด 6 รหัสต่อนัด)</p>
+          <form id="icd9Form" class="inline-form">
+            <input type="text" id="icd9Code" placeholder="รหัส เช่น 9310" required style="max-width:120px;" />
+            <input type="text" id="icd9Label" placeholder="คำอธิบาย เช่น การออกกำลังกายบำบัด" required />
+            <button type="submit">เพิ่มรหัส</button>
+          </form>
+          <ul id="icd9List" class="tag-list"></ul>
+        </div>
       </section>
     </main>
   </div>
@@ -226,6 +248,10 @@
       <label>หมายเหตุ
         <input type="text" id="apptNote" />
       </label>
+      <div class="section-label" style="margin-top:14px;">รหัส ICD-10</div>
+      <div class="icd-slots" id="apptIcd10Slots"></div>
+      <div class="section-label">รหัส ICD-9</div>
+      <div class="icd-slots" id="apptIcd9Slots"></div>
       <p id="apptError" class="error-text"></p>
       <div class="modal-actions">
         <button type="button" class="secondary" id="apptCancelBtn">ยกเลิก</button>
@@ -293,6 +319,15 @@
   <div id="apptDetailModal" class="modal hidden">
     <h3>รายละเอียดนัดหมาย</h3>
     <div id="apptDetailBody" class="detail-body"></div>
+
+    <div class="physio-only">
+      <div class="section-label">แก้ไขรหัส ICD-10</div>
+      <div class="icd-slots" id="detailIcd10Slots"></div>
+      <div class="section-label">แก้ไขรหัส ICD-9</div>
+      <div class="icd-slots" id="detailIcd9Slots"></div>
+      <button type="button" class="secondary" id="detailSaveIcdBtn" style="width:100%;margin-bottom:14px;">บันทึกรหัส ICD</button>
+    </div>
+
     <div class="modal-actions">
       <button type="button" class="primary physio-only" id="apptDetailAttendBtn">บันทึกว่ามาทำกายภาพแล้ว ✓</button>
       <button type="button" class="secondary" id="apptDetailCloseBtn">ปิด</button>
