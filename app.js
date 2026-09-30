@@ -13,6 +13,9 @@ const state = {
   currentDate: null,
   currentDayDetail: null,
   clinicTypes: [],
+  icd10Codes: [],
+  icd9Codes: [],
+  currentApptDetailId: null,
   settingsLoaded: false
 };
 
@@ -122,6 +125,7 @@ function enterApp() {
     el.style.display = state.role === 'physio' ? '' : 'none';
   });
   if (state.role === 'physio') refreshClinicTypes();
+  refreshIcdCodes();
   renderCalendar();
 }
 
@@ -167,7 +171,9 @@ function fetchCalendarMonth_(year, month) {
 
 async function renderCalendar() {
   const reqId = ++_calendarReqId_;
-  document.getElementById('monthLabel').textContent = `${MONTH_NAMES[state.month - 1]} ${state.year + 543}`;
+  const reqYear = state.year, reqMonth = state.month; // จับค่าปี/เดือนไว้ตอนเริ่มคำขอ ใช้ค่านี้ตลอดฟังก์ชัน
+  // กันเดือนค้าง: ไม่อิง state.year/state.month ซ้ำหลัง await เพราะระหว่างรอ ผู้ใช้อาจกดเปลี่ยนเดือนอีกจนค่าถูกเขียนทับไปแล้ว
+  document.getElementById('monthLabel').textContent = `${MONTH_NAMES[reqMonth - 1]} ${reqYear + 543}`;
   document.getElementById('prevMonth').disabled = true;
   document.getElementById('nextMonth').disabled = true;
 
@@ -175,21 +181,22 @@ async function renderCalendar() {
   grid.classList.add('loading');
   if (!grid.children.length) grid.innerHTML = '<div class="calendar-loading-msg">กำลังโหลดปฏิทิน...</div>';
 
-  const res = await fetchCalendarMonth_(state.year, state.month);
+  const res = await fetchCalendarMonth_(reqYear, reqMonth);
 
   document.getElementById('prevMonth').disabled = false;
   document.getElementById('nextMonth').disabled = false;
-  if (reqId !== _calendarReqId_) return; // มีการเรียกครั้งใหม่กว่าเกิดขึ้นแล้ว ผลลัพธ์นี้เก่าเกินไป ไม่ต้องเอามาแสดง
+  // เช็คสองชั้น: ทั้งเลขคำขอ (กันคำขอเก่าที่มาช้ากว่า) และเดือน/ปีที่กำลังแสดงอยู่จริงตอนนี้ (กันทุกกรณีที่คิดไม่ถึง)
+  if (reqId !== _calendarReqId_ || state.year !== reqYear || state.month !== reqMonth) return;
   grid.classList.remove('loading');
   if (!res.ok) {
-    delete _calendarPrefetchCache_[state.year + '-' + state.month]; // เผื่อโหลดพลาด ครั้งหน้าจะได้ลองใหม่
+    delete _calendarPrefetchCache_[reqYear + '-' + reqMonth]; // เผื่อโหลดพลาด ครั้งหน้าจะได้ลองใหม่
     toast(res.error);
     return;
   }
 
   grid.innerHTML = '';
 
-  const firstDate = new Date(state.year, state.month - 1, 1);
+  const firstDate = new Date(reqYear, reqMonth - 1, 1);
   // ต้องการให้จันทร์เป็นคอลัมน์แรก: JS getDay() = 0(อา)-6(ส) -> แปลงเป็น 0(จ)-6(อา)
   const leadingBlank = (firstDate.getDay() + 6) % 7;
 
@@ -205,7 +212,7 @@ async function renderCalendar() {
 
   // ไฮไลต์ชื่อวันในหัวตารางของ "วันนี้" (เฉพาะตอนที่กำลังดูเดือนปัจจุบัน)
   document.querySelectorAll('.weekday-row span').forEach((el, i) => {
-    const isTodayCol = state.year === now.getFullYear() && state.month === now.getMonth() + 1 && i === (now.getDay() + 6) % 7;
+    const isTodayCol = reqYear === now.getFullYear() && reqMonth === now.getMonth() + 1 && i === (now.getDay() + 6) % 7;
     el.classList.toggle('today-col', isTodayCol);
   });
 
@@ -398,12 +405,16 @@ function openApptDetail(a) {
     ['เบอร์โทร', a.phone || '-'],
     ['เลขบัตรประชาชน', a.nationalId || '-'],
     ['หมายเหตุ', a.note || '-'],
+    ['รหัส ICD-10', formatIcdList_(a.icd10, state.icd10Codes) || '-'],
+    ['รหัส ICD-9', formatIcdList_(a.icd9, state.icd9Codes) || '-'],
     ['สถานะ', a.attendedAt ? `มาทำกายภาพแล้ว (${fmtDateTime_(a.attendedAt)})` : 'ยังไม่ได้บันทึกว่ามา'],
     ['บันทึกนัดโดย', a.createdBy || '-']
   ];
   document.getElementById('apptDetailBody').innerHTML = rows.map(([label, value]) =>
     `<div class="detail-row"><span class="detail-label">${label}</span><span class="detail-value">${value}</span></div>`
   ).join('');
+
+  state.currentApptDetailId = a.id;
 
   const cancelBtn = document.getElementById('apptDetailCancelBtn');
   cancelBtn.dataset.id = a.id;
@@ -417,9 +428,36 @@ function openApptDetail(a) {
     attendBtn.className = (a.attendedAt ? 'secondary' : 'primary') + ' physio-only';
   }
 
+  // แก้ไข/เพิ่มรหัส ICD ของนัดที่จองไปแล้ว (เฉพาะนักกายภาพ, นัดที่ยังไม่ถูกยกเลิก)
+  const auto10 = autoCodeOf_(state.icd10Codes), auto9 = autoCodeOf_(state.icd9Codes);
+  const icd10Sel = String(a.icd10 || '').split(',').map(s => s.trim()).filter(c => c && c !== auto10);
+  const icd9Sel = String(a.icd9 || '').split(',').map(s => s.trim()).filter(c => c && c !== auto9);
+  renderIcdSlots_('detailIcd10Slots', state.icd10Codes, 2, icd10Sel);
+  renderIcdSlots_('detailIcd9Slots', state.icd9Codes, 6, icd9Sel);
+  const saveIcdBtn = document.getElementById('detailSaveIcdBtn');
+  if (saveIcdBtn) saveIcdBtn.style.display = a.status === 'cancelled' ? 'none' : '';
+
   apptDetailModal?.classList.remove('hidden');
   apptDetailModalBackdrop?.classList.remove('hidden');
 }
+
+document.getElementById('detailSaveIcdBtn')?.addEventListener('click', async (e) => {
+  const btn = e.currentTarget;
+  const originalText = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = 'กำลังบันทึก...';
+  const res = await api('updateAppointmentIcd', {
+    id: state.currentApptDetailId,
+    icd10: gatherIcdSlots_('detailIcd10Slots'),
+    icd9: gatherIcdSlots_('detailIcd9Slots')
+  });
+  btn.disabled = false;
+  btn.textContent = originalText;
+  if (!res.ok) { toast(res.error); return; }
+  toast('บันทึกรหัส ICD แล้ว');
+  closeApptDetail();
+  await openDayPanel(state.currentDate);
+});
 function closeApptDetail() {
   apptDetailModal?.classList.add('hidden');
   apptDetailModalBackdrop?.classList.add('hidden');
@@ -630,7 +668,6 @@ function openApptModal(startTime) {
 
   const startSel = document.getElementById('apptStart');
   startSel.innerHTML = '';
-  const slotMinutes = state.currentDayDetail.schedule ? Number(state.currentDayDetail.schedule.slotMinutes) : 30;
   state.currentDayDetail.slots.filter(s => s.available).forEach(s => {
     const opt = document.createElement('option');
     opt.value = s.start;
@@ -638,6 +675,9 @@ function openApptModal(startTime) {
     startSel.appendChild(opt);
   });
   if (startTime) startSel.value = startTime;
+
+  renderIcdSlots_('apptIcd10Slots', state.icd10Codes, 2, []);
+  renderIcdSlots_('apptIcd9Slots', state.icd9Codes, 6, []);
 
   apptModal.classList.remove('hidden');
   apptModalBackdrop.classList.remove('hidden');
@@ -647,6 +687,69 @@ function closeApptModal() {
   apptModalBackdrop.classList.add('hidden');
 }
 document.getElementById('apptCancelBtn')?.addEventListener('click', closeApptModal);
+
+/* ---------------- รหัส ICD-10 / ICD-9 (ใช้ร่วมกันทั้งตอนทำนัดและตอนแก้ไข) ---------------- */
+
+async function refreshIcdCodes() {
+  const [r10, r9] = await Promise.all([api('getIcd10Codes'), api('getIcd9Codes')]);
+  if (r10.ok) state.icd10Codes = r10.data;
+  if (r9.ok) state.icd9Codes = r9.data;
+}
+
+function autoCodeOf_(codeList) {
+  const a = (codeList || []).find(c => c.isAuto === true);
+  return a ? a.code : null;
+}
+
+/**
+ * วาดช่อง ICD ทั้งหมด: ช่องแรกล็อกเป็นรหัสอัตโนมัติเสมอ (แก้ไม่ได้) ช่องที่เหลือเป็น dropdown ให้เลือกเอง
+ * selected = รายการรหัส "ที่ไม่ใช่รหัสอัตโนมัติ" ที่เคยเลือกไว้แล้ว เรียงตามช่อง (ใช้ตอนเปิดแก้ไขนัดเดิม)
+ */
+function renderIcdSlots_(containerId, codeList, totalSlots, selected) {
+  const box = document.getElementById(containerId);
+  if (!box) return;
+  box.innerHTML = '';
+  selected = selected || [];
+
+  const autoEntry = (codeList || []).find(c => c.isAuto === true);
+  const options = (codeList || []).filter(c => c.isAuto !== true);
+
+  const row0 = document.createElement('div');
+  row0.className = 'icd-slot-row';
+  row0.innerHTML = `<span class="icd-slot-label">1</span><div class="icd-slot-auto">${autoEntry ? autoEntry.code + ' - ' + autoEntry.label : '(ยังไม่ได้ตั้งรหัสอัตโนมัติ)'}</div>`;
+  box.appendChild(row0);
+
+  for (let i = 1; i < totalSlots; i++) {
+    const row = document.createElement('div');
+    row.className = 'icd-slot-row';
+    const selVal = selected[i - 1] || '';
+    row.innerHTML = `
+      <span class="icd-slot-label">${i + 1}</span>
+      <select class="icd-slot-select">
+        <option value="">-- ไม่เลือก --</option>
+        ${options.map(o => `<option value="${o.code}" ${o.code === selVal ? 'selected' : ''}>${o.code} - ${o.label}</option>`).join('')}
+      </select>`;
+    box.appendChild(row);
+  }
+}
+
+/** อ่านค่ารหัสที่เลือกไว้ทั้งหมดจากช่อง (ไม่รวมรหัสอัตโนมัติ ฝั่งหลังบ้านจะใส่ให้เองเสมอ) */
+function gatherIcdSlots_(containerId) {
+  const box = document.getElementById(containerId);
+  const codes = [];
+  box?.querySelectorAll('.icd-slot-select').forEach(sel => { if (sel.value) codes.push(sel.value); });
+  return codes;
+}
+
+/** แปลงสตริงรหัสที่คั่นด้วยจุลภาค (เก็บในชีต) ให้เป็นข้อความอ่านง่าย "รหัส - คำอธิบาย" */
+function formatIcdList_(str, codeList) {
+  const codes = String(str || '').split(',').map(s => s.trim()).filter(Boolean);
+  if (!codes.length) return '';
+  return codes.map(c => {
+    const found = (codeList || []).find(x => x.code === c);
+    return found ? `${c} - ${found.label}` : c;
+  }).join(', ');
+}
 apptModalBackdrop?.addEventListener('click', closeApptModal);
 
 document.getElementById('apptForm')?.addEventListener('submit', async (e) => {
@@ -669,7 +772,9 @@ document.getElementById('apptForm')?.addEventListener('submit', async (e) => {
     moo: document.getElementById('apptMoo').value.trim(),
     phone: document.getElementById('apptPhone').value.trim(),
     nationalId: document.getElementById('apptNationalId').value.trim(),
-    note: document.getElementById('apptNote').value.trim()
+    note: document.getElementById('apptNote').value.trim(),
+    icd10: gatherIcdSlots_('apptIcd10Slots'),
+    icd9: gatherIcdSlots_('apptIcd9Slots')
   });
 
   submitBtn.disabled = false;
@@ -731,18 +836,61 @@ document.getElementById('busyForm')?.addEventListener('submit', async (e) => {
 const DAY_LABELS = { 1: 'จันทร์', 2: 'อังคาร', 3: 'พุธ', 4: 'พฤหัสบดี', 5: 'ศุกร์', 6: 'เสาร์', 0: 'อาทิตย์' };
 
 async function loadSettings() {
-  const [schedRes, closedRes, clinicRes, ruleRes] = await Promise.all([
-    api('getSchedule'), api('getClosedDates'), api('getClinicTypes'), api('getClinicRules')
+  const [schedRes, closedRes, clinicRes, ruleRes, icd10Res, icd9Res] = await Promise.all([
+    api('getSchedule'), api('getClosedDates'), api('getClinicTypes'), api('getClinicRules'),
+    api('getIcd10Codes'), api('getIcd9Codes')
   ]); // เรียกพร้อมกัน ลดเวลารอ
 
   if (schedRes.ok) renderScheduleForm(schedRes.data); else toast('โหลดเวลาเปิด-ปิดไม่สำเร็จ: ' + schedRes.error);
   if (closedRes.ok) renderClosedList(closedRes.data); else toast('โหลดวันปิดไม่สำเร็จ: ' + closedRes.error);
   if (clinicRes.ok) { state.clinicTypes = clinicRes.data; renderClinicTypesList(clinicRes.data); renderRuleClinicSelect(clinicRes.data); } else toast('โหลดประเภทคลินิกไม่สำเร็จ: ' + clinicRes.error);
   if (ruleRes.ok) renderClinicRulesList(ruleRes.data); else toast('โหลดกฎคลินิกไม่สำเร็จ: ' + ruleRes.error);
+  if (icd10Res.ok) { state.icd10Codes = icd10Res.data; renderIcdCodeList_('icd10List', icd10Res.data, 'removeIcd10Code'); } else toast('โหลดรหัส ICD-10 ไม่สำเร็จ: ' + icd10Res.error);
+  if (icd9Res.ok) { state.icd9Codes = icd9Res.data; renderIcdCodeList_('icd9List', icd9Res.data, 'removeIcd9Code'); } else toast('โหลดรหัส ICD-9 ไม่สำเร็จ: ' + icd9Res.error);
 
   // ให้โหลดใหม่อัตโนมัติได้อีกครั้งถ้ารอบนี้มีบางส่วนล้มเหลว (ไม่ล็อกว่า "โหลดแล้ว" ทั้งที่ข้อมูลไม่ครบ)
-  state.settingsLoaded = schedRes.ok && closedRes.ok && clinicRes.ok && ruleRes.ok;
+  state.settingsLoaded = schedRes.ok && closedRes.ok && clinicRes.ok && ruleRes.ok && icd10Res.ok && icd9Res.ok;
 }
+
+function renderIcdCodeList_(listId, rows, removeAction) {
+  const list = document.getElementById(listId);
+  if (!list) return;
+  list.innerHTML = '';
+  if (!rows.length) { list.innerHTML = '<li style="background:none;color:var(--ink-soft);">ยังไม่มีรหัส</li>'; return; }
+  rows.forEach(r => {
+    const li = document.createElement('li');
+    li.innerHTML = `<span>${r.code} - ${r.label}${r.isAuto ? ' <span class="badge avail-tag">อัตโนมัติ</span>' : ''}</span>` +
+      (r.isAuto ? '' : `<button data-id="${r.id}">ลบ</button>`);
+    list.appendChild(li);
+  });
+  list.querySelectorAll('button').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const res = await api(removeAction, { id: btn.dataset.id });
+      if (!res.ok) { toast(res.error); return; }
+      loadSettings();
+    });
+  });
+}
+
+document.getElementById('icd10Form')?.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const code = document.getElementById('icd10Code').value.trim();
+  const label = document.getElementById('icd10Label').value.trim();
+  const res = await api('addIcd10Code', { code, label });
+  if (!res.ok) { toast(res.error); return; }
+  document.getElementById('icd10Form').reset();
+  loadSettings();
+});
+
+document.getElementById('icd9Form')?.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const code = document.getElementById('icd9Code').value.trim();
+  const label = document.getElementById('icd9Label').value.trim();
+  const res = await api('addIcd9Code', { code, label });
+  if (!res.ok) { toast(res.error); return; }
+  document.getElementById('icd9Form').reset();
+  loadSettings();
+});
 
 document.getElementById('refreshSettingsBtn')?.addEventListener('click', loadSettings);
 
