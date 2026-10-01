@@ -320,6 +320,13 @@
     <h3>รายละเอียดนัดหมาย</h3>
     <div id="apptDetailBody" class="detail-body"></div>
 
+    <div class="section-label" style="margin-top:0;">แก้ไขเลขบัตรประชาชน</div>
+    <div class="icd-slot-row" style="margin-bottom:4px;">
+      <input type="text" id="detailNationalId" maxlength="13" inputmode="numeric" placeholder="13 หลัก (ไม่บังคับ)" style="flex:1;" />
+      <button type="button" class="secondary" id="detailSaveNationalIdBtn">บันทึก</button>
+    </div>
+    <p id="detailNationalIdError" class="error-text"></p>
+
     <div class="physio-only">
       <div class="section-label">แก้ไขรหัส ICD-10</div>
       <div class="icd-slots" id="detailIcd10Slots"></div>
