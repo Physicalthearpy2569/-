@@ -124,9 +124,12 @@ function enterApp() {
   document.querySelectorAll('.physio-only').forEach(el => {
     el.style.display = state.role === 'physio' ? '' : 'none';
   });
-  if (state.role === 'physio') refreshClinicTypes();
-  refreshIcdCodes();
-  renderCalendar();
+  // ปฏิทินสำคัญที่สุด ให้ขึ้นก่อนโดยไม่ต้องแย่งคิว Apps Script กับคำขออื่น
+  // (ยิงหลายคำขอพร้อมกันตอนเปิดเว็บทำให้ทุกอย่างช้าลง เพราะ Apps Script จำกัดจำนวนที่ทำงานพร้อมกันได้)
+  renderCalendar().then(() => {
+    if (state.role === 'physio') refreshClinicTypes();
+    refreshIcdCodes();
+  });
 }
 
 /* ---------------- Navigation ---------------- */
@@ -164,7 +167,11 @@ const _calendarPrefetchCache_ = {}; // เก็บผลลัพธ์เด�
 function fetchCalendarMonth_(year, month) {
   const key = year + '-' + month;
   if (!_calendarPrefetchCache_[key]) {
-    _calendarPrefetchCache_[key] = api('getCalendar', { year, month });
+    _calendarPrefetchCache_[key] = api('getCalendar', { year, month }).then(res => {
+      // อย่าแคชผลลัพธ์ที่ล้มเหลวไว้ถาวร (เช่น จากการดักโหลดล่วงหน้าเบื้องหลังที่พลาด) มิเช่นนั้นครั้งหน้าจะเจอ error ซ้ำเดิมตลอด
+      if (!res.ok) delete _calendarPrefetchCache_[key];
+      return res;
+    });
   }
   return _calendarPrefetchCache_[key];
 }
@@ -403,7 +410,6 @@ function openApptDetail(a) {
     ['ชื่อ-นามสกุล', `${a.firstName} ${a.lastName}`],
     ['หมู่', a.moo || '-'],
     ['เบอร์โทร', a.phone || '-'],
-    ['เลขบัตรประชาชน', a.nationalId || '-'],
     ['หมายเหตุ', a.note || '-'],
     ['รหัส ICD-10', formatIcdList_(a.icd10, state.icd10Codes) || '-'],
     ['รหัส ICD-9', formatIcdList_(a.icd9, state.icd9Codes) || '-'],
@@ -415,6 +421,11 @@ function openApptDetail(a) {
   ).join('');
 
   state.currentApptDetailId = a.id;
+
+  document.getElementById('detailNationalId').value = a.nationalId || '';
+  document.getElementById('detailNationalIdError').textContent = '';
+  const saveNidBtn = document.getElementById('detailSaveNationalIdBtn');
+  if (saveNidBtn) saveNidBtn.style.display = a.status === 'cancelled' ? 'none' : '';
 
   const cancelBtn = document.getElementById('apptDetailCancelBtn');
   cancelBtn.dataset.id = a.id;
@@ -440,6 +451,23 @@ function openApptDetail(a) {
   apptDetailModal?.classList.remove('hidden');
   apptDetailModalBackdrop?.classList.remove('hidden');
 }
+
+document.getElementById('detailSaveNationalIdBtn')?.addEventListener('click', async (e) => {
+  const btn = e.currentTarget;
+  const val = document.getElementById('detailNationalId').value.trim();
+  const errEl = document.getElementById('detailNationalIdError');
+  errEl.textContent = '';
+  const originalText = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = 'กำลังบันทึก...';
+  const res = await api('updateAppointmentInfo', { id: state.currentApptDetailId, nationalId: val });
+  btn.disabled = false;
+  btn.textContent = originalText;
+  if (!res.ok) { errEl.textContent = res.error; return; }
+  toast('บันทึกเลขบัตรประชาชนแล้ว');
+  closeApptDetail();
+  await openDayPanel(state.currentDate);
+});
 
 document.getElementById('detailSaveIcdBtn')?.addEventListener('click', async (e) => {
   const btn = e.currentTarget;
