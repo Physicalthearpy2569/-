@@ -207,6 +207,8 @@
 
       <div class="section-label">ช่วงเวลา</div>
       <div id="slotList" class="slot-list"></div>
+      <ul id="extraSlotList" class="tag-list physio-only" style="margin-top:8px;"></ul>
+      <button id="addExtraSlotBtn" class="secondary physio-only" style="width:100%;margin-top:8px;">+ เพิ่มเวลาพิเศษวันนี้</button>
 
       <div class="section-label">นัดหมายวันนี้</div>
       <ul id="apptList" class="appt-list"></ul>
@@ -287,6 +289,30 @@
       <div class="modal-actions">
         <button type="button" class="secondary" id="busyCancelBtn">ยกเลิก</button>
         <button type="submit" class="primary">บันทึก</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- ---------------- โมดัลเพิ่มเวลาพิเศษ (เสริมเข้าไปจากตารางเดิม เฉพาะวันเดียว) ---------------- -->
+  <div id="extraSlotModalBackdrop" class="backdrop hidden"></div>
+  <div id="extraSlotModal" class="modal hidden">
+    <h3>เพิ่มเวลาพิเศษวันนี้</h3>
+    <p class="panel-hint">เพิ่มช่วงเวลาเสริมเฉพาะวันนี้วันเดียว โดยไม่กระทบตารางเวลาปกติ หรือวันอื่นๆ</p>
+    <form id="extraSlotForm">
+      <input type="hidden" id="extraSlotDate" />
+      <label>เวลาเริ่ม
+        <input type="time" id="extraSlotStart" required />
+      </label>
+      <label>เวลาสิ้นสุด
+        <input type="time" id="extraSlotEnd" required />
+      </label>
+      <label>หมายเหตุ
+        <input type="text" id="extraSlotNote" placeholder="ไม่บังคับ" />
+      </label>
+      <p id="extraSlotError" class="error-text"></p>
+      <div class="modal-actions">
+        <button type="button" class="secondary" id="extraSlotCancelBtn">ยกเลิก</button>
+        <button type="submit" class="primary">เพิ่มเวลาพิเศษ</button>
       </div>
     </form>
   </div>
