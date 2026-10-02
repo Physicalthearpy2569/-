@@ -311,6 +311,7 @@ async function openDayPanel(dateStr) {
   renderClinicDisplay(res.data.clinic);
   renderClinicEditor(res.data.clinic);
   renderDayToggleActions(res.data);
+  renderExtraSlotList(res.data.extraSlots);
 
   dayPanel.classList.remove('hidden');
   dayPanelBackdrop.classList.remove('hidden');
@@ -606,6 +607,70 @@ function renderDayToggleActions(dayDetail) {
     box.appendChild(btn);
   }
 }
+
+/* ---------------- เวลาพิเศษเสริม (เฉพาะวันเดียว ไม่กระทบตารางปกติ) ---------------- */
+
+function renderExtraSlotList(rows) {
+  const list = document.getElementById('extraSlotList');
+  if (!list) return;
+  list.innerHTML = '';
+  if (!rows || !rows.length) return; // ไม่มีรายการ ไม่ต้องโชว์อะไรเลย (ไม่ใช่ข้อมูลหลักของวัน)
+  rows.forEach(s => {
+    const li = document.createElement('li');
+    li.innerHTML = `<span>${s.start}-${s.end}${s.note ? ' — ' + s.note : ''} <span class="badge special-tag">พิเศษ</span></span><button data-id="${s.id}">ลบ</button>`;
+    list.appendChild(li);
+  });
+  list.querySelectorAll('button').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const res = await api('removeExtraSlot', { id: btn.dataset.id });
+      if (!res.ok) { toast(res.error); return; }
+      toast('ลบเวลาพิเศษแล้ว');
+      await Promise.all([openDayPanel(state.currentDate), renderCalendar()]);
+    });
+  });
+}
+
+const extraSlotModal = document.getElementById('extraSlotModal');
+const extraSlotModalBackdrop = document.getElementById('extraSlotModalBackdrop');
+
+document.getElementById('addExtraSlotBtn')?.addEventListener('click', () => {
+  document.getElementById('extraSlotDate').value = state.currentDate;
+  document.getElementById('extraSlotError').textContent = '';
+  document.getElementById('extraSlotForm').reset();
+  extraSlotModal?.classList.remove('hidden');
+  extraSlotModalBackdrop?.classList.remove('hidden');
+});
+function closeExtraSlotModal() {
+  extraSlotModal?.classList.add('hidden');
+  extraSlotModalBackdrop?.classList.add('hidden');
+}
+document.getElementById('extraSlotCancelBtn')?.addEventListener('click', closeExtraSlotModal);
+extraSlotModalBackdrop?.addEventListener('click', closeExtraSlotModal);
+
+document.getElementById('extraSlotForm')?.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const date = document.getElementById('extraSlotDate').value;
+  const start = document.getElementById('extraSlotStart').value;
+  const end = document.getElementById('extraSlotEnd').value;
+  const note = document.getElementById('extraSlotNote').value.trim();
+  const errEl = document.getElementById('extraSlotError');
+  if (start >= end) { errEl.textContent = 'เวลาเริ่มต้องน้อยกว่าเวลาสิ้นสุด'; return; }
+
+  const submitBtn = e.target.querySelector('button[type="submit"]');
+  const originalText = submitBtn.textContent;
+  submitBtn.disabled = true;
+  submitBtn.textContent = 'กำลังบันทึก...';
+
+  const res = await api('addExtraSlot', { date, start, end, note });
+
+  submitBtn.disabled = false;
+  submitBtn.textContent = originalText;
+
+  if (!res.ok) { errEl.textContent = res.error; return; }
+  toast('เพิ่มเวลาพิเศษแล้ว');
+  closeExtraSlotModal();
+  await Promise.all([openDayPanel(date), renderCalendar()]);
+});
 
 const specialModal = document.getElementById('specialModal');
 const specialModalBackdrop = document.getElementById('specialModalBackdrop');
@@ -1271,5 +1336,30 @@ function renderTrend_(trend, granularity) {
 
 const THAI_MONTH_SHORT = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
 
+
+/* ---------------- พับ/ขยายแต่ละหัวข้อในหน้าตั้งค่า ---------------- */
+
+function setupCollapsiblePanels_() {
+  document.querySelectorAll('#settingsView .panel').forEach(panel => {
+    const h3 = panel.querySelector('h3');
+    if (!h3 || panel.dataset.collapsibleSetup) return;
+    panel.dataset.collapsibleSetup = '1';
+
+    // ย้ายทุกอย่างหลัง h3 เข้ากล่อง panel-body เดียว เพื่อพับ/ขยายได้ทีเดียวทั้งหมด
+    const body = document.createElement('div');
+    body.className = 'panel-body';
+    const toMove = [];
+    let node = h3.nextSibling;
+    while (node) { toMove.push(node); node = node.nextSibling; }
+    toMove.forEach(n => body.appendChild(n));
+    panel.appendChild(body);
+
+    const titleText = h3.textContent;
+    h3.classList.add('panel-toggle');
+    h3.innerHTML = `<span>${titleText}</span><span class="panel-chevron">▾</span>`;
+    h3.addEventListener('click', () => panel.classList.toggle('collapsed'));
+  });
+}
+setupCollapsiblePanels_();
 
 if (state.token) enterApp();
