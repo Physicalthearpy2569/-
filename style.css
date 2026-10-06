@@ -437,6 +437,7 @@ label {
   min-width: 140px;
   flex: 1 1 140px;
 }
+#busyRuleWeekdayFields, #busyRuleDomFields, #busyRuleTimeFields { display: contents; }
 .rule-form button {
   background: var(--teal);
   color: #fff;
