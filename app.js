@@ -929,9 +929,9 @@ document.getElementById('busyForm')?.addEventListener('submit', async (e) => {
 const DAY_LABELS = { 1: 'จันทร์', 2: 'อังคาร', 3: 'พุธ', 4: 'พฤหัสบดี', 5: 'ศุกร์', 6: 'เสาร์', 0: 'อาทิตย์' };
 
 async function loadSettings() {
-  const [schedRes, closedRes, clinicRes, ruleRes, icd10Res, icd9Res] = await Promise.all([
+  const [schedRes, closedRes, clinicRes, ruleRes, icd10Res, icd9Res, busyRuleRes] = await Promise.all([
     api('getSchedule'), api('getClosedDates'), api('getClinicTypes'), api('getClinicRules'),
-    api('getIcd10Codes'), api('getIcd9Codes')
+    api('getIcd10Codes'), api('getIcd9Codes'), api('getBusyRules')
   ]); // เรียกพร้อมกัน ลดเวลารอ
 
   if (schedRes.ok) renderScheduleForm(schedRes.data); else toast('โหลดเวลาเปิด-ปิดไม่สำเร็จ: ' + schedRes.error);
@@ -940,9 +940,10 @@ async function loadSettings() {
   if (ruleRes.ok) renderClinicRulesList(ruleRes.data); else toast('โหลดกฎคลินิกไม่สำเร็จ: ' + ruleRes.error);
   if (icd10Res.ok) { state.icd10Codes = icd10Res.data; renderIcdCodeList_('icd10List', icd10Res.data, 'removeIcd10Code'); } else toast('โหลดรหัส ICD-10 ไม่สำเร็จ: ' + icd10Res.error);
   if (icd9Res.ok) { state.icd9Codes = icd9Res.data; renderIcdCodeList_('icd9List', icd9Res.data, 'removeIcd9Code'); } else toast('โหลดรหัส ICD-9 ไม่สำเร็จ: ' + icd9Res.error);
+  if (busyRuleRes.ok) renderBusyRulesList(busyRuleRes.data); else toast('โหลดกฎปิดอัตโนมัติไม่สำเร็จ: ' + busyRuleRes.error);
 
   // ให้โหลดใหม่อัตโนมัติได้อีกครั้งถ้ารอบนี้มีบางส่วนล้มเหลว (ไม่ล็อกว่า "โหลดแล้ว" ทั้งที่ข้อมูลไม่ครบ)
-  state.settingsLoaded = schedRes.ok && closedRes.ok && clinicRes.ok && ruleRes.ok && icd10Res.ok && icd9Res.ok;
+  state.settingsLoaded = schedRes.ok && closedRes.ok && clinicRes.ok && ruleRes.ok && icd10Res.ok && icd9Res.ok && busyRuleRes.ok;
 }
 
 function renderIcdCodeList_(listId, rows, removeAction) {
@@ -1195,6 +1196,98 @@ document.getElementById('clinicRuleForm')?.addEventListener('submit', async (e) 
   renderCalendar();
 });
 
+/* ---------------- ปิด/ไม่ว่างอัตโนมัติ (ตามวัน) ---------------- */
+
+// เติมตัวเลือก "วันที่ 1" ถึง "วันที่ 31" ในช่องตามวันที่ในเดือน (วันสุดท้ายของเดือนมีอยู่แล้วใน HTML)
+(() => {
+  const sel = document.getElementById('busyRuleDayOfMonth');
+  if (!sel) return;
+  for (let d = 31; d >= 1; d--) {
+    const opt = document.createElement('option');
+    opt.value = String(d);
+    opt.textContent = 'วันที่ ' + d;
+    sel.insertBefore(opt, sel.firstChild);
+  }
+})();
+
+document.getElementById('busyRulePatternType')?.addEventListener('change', (e) => {
+  const isWeekday = e.target.value === 'weekday';
+  document.getElementById('busyRuleWeekdayFields').classList.toggle('hidden', !isWeekday);
+  document.getElementById('busyRuleDomFields').classList.toggle('hidden', isWeekday);
+});
+document.getElementById('busyRulePartial')?.addEventListener('change', (e) => {
+  document.getElementById('busyRuleTimeFields').classList.toggle('hidden', !e.target.checked);
+});
+
+function renderBusyRulesList(rows) {
+  const list = document.getElementById('busyRuleList');
+  if (!list) return;
+  list.innerHTML = '';
+  if (!rows.length) { list.innerHTML = '<li style="background:none;color:var(--ink-soft);">ยังไม่มีกฎปิดอัตโนมัติ</li>'; return; }
+  rows.forEach(r => {
+    let whenLabel;
+    if (r.patternType === 'weekday') {
+      const weekdayLabel = RULE_WEEKDAY_LABELS[String(r.weekday)] || r.weekday;
+      const nthLabel = RULE_NTH_LABELS[String(r.nth)] || r.nth;
+      whenLabel = nthLabel === 'ทุกสัปดาห์' ? 'ทุกวัน' + weekdayLabel : `วัน${weekdayLabel} (${nthLabel})`;
+    } else {
+      whenLabel = r.dayOfMonth === 'last' ? 'วันสุดท้ายของเดือน' : 'วันที่ ' + r.dayOfMonth + ' ของเดือน';
+    }
+    const timeLabel = r.startTime ? `${r.startTime}-${r.endTime} (${r.type})` : 'ปิดทั้งวัน';
+    const li = document.createElement('li');
+    li.innerHTML = `<span>${whenLabel} — ${timeLabel}${r.note ? ' — ' + r.note : ''}</span><button data-id="${r.id}">ลบ</button>`;
+    list.appendChild(li);
+  });
+  list.querySelectorAll('button').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const res = await api('removeBusyRule', { id: btn.dataset.id });
+      if (!res.ok) { toast(res.error); return; }
+      loadSettings();
+      renderCalendar();
+    });
+  });
+}
+
+document.getElementById('busyRuleForm')?.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const patternType = document.getElementById('busyRulePatternType').value;
+  const isPartial = document.getElementById('busyRulePartial').checked;
+  const note = document.getElementById('busyRuleNote').value.trim();
+
+  const payload = { patternType, note };
+  if (patternType === 'weekday') {
+    payload.weekday = document.getElementById('busyRuleWeekday').value;
+    payload.nth = document.getElementById('busyRuleNth').value;
+  } else {
+    payload.dayOfMonth = document.getElementById('busyRuleDayOfMonth').value;
+  }
+  if (isPartial) {
+    payload.startTime = document.getElementById('busyRuleStart').value;
+    payload.endTime = document.getElementById('busyRuleEnd').value;
+    payload.type = document.getElementById('busyRuleType').value;
+    if (!payload.startTime || !payload.endTime) { toast('กรุณาระบุเวลาเริ่มและเวลาสิ้นสุด'); return; }
+  }
+
+  const submitBtn = e.target.querySelector('button[type="submit"]');
+  const originalText = submitBtn.textContent;
+  submitBtn.disabled = true;
+  submitBtn.textContent = 'กำลังบันทึก...';
+
+  const res = await api('addBusyRule', payload);
+
+  submitBtn.disabled = false;
+  submitBtn.textContent = originalText;
+
+  if (!res.ok) { toast(res.error); return; }
+  document.getElementById('busyRuleForm').reset();
+  document.getElementById('busyRuleTimeFields').classList.add('hidden');
+  document.getElementById('busyRuleWeekdayFields').classList.remove('hidden');
+  document.getElementById('busyRuleDomFields').classList.add('hidden');
+  toast('เพิ่มกฎปิดอัตโนมัติแล้ว');
+  loadSettings();
+  renderCalendar();
+});
+
 /* ---------------- เริ่มระบบ ---------------- */
 // วางไว้ท้ายไฟล์เสมอ เพื่อให้ตัวแปร/ฟังก์ชันทั้งหมด (เช่น MONTH_NAMES) ถูกประกาศครบก่อนเรียกใช้งาน
 /* ---------------- สถิติ (Dashboard) ---------------- */
@@ -1358,6 +1451,8 @@ function setupCollapsiblePanels_() {
     h3.classList.add('panel-toggle');
     h3.innerHTML = `<span>${titleText}</span><span class="panel-chevron">▾</span>`;
     h3.addEventListener('click', () => panel.classList.toggle('collapsed'));
+
+    panel.classList.add('collapsed'); // เริ่มต้นพับเก็บไว้ก่อน ให้ผู้ใช้กดดูทีละหัวข้อเอง
   });
 }
 setupCollapsiblePanels_();
