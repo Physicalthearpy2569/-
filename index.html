@@ -158,6 +158,61 @@
         </div>
 
         <div class="panel">
+          <h3>ปิด/ไม่ว่างอัตโนมัติ (ตามวัน)</h3>
+          <p class="panel-hint">เช่น "ทำเอกสาร ทุกวันศุกร์สัปดาห์สุดท้ายของเดือน" หรือ "ปิดทั้งวัน ทุกวันที่ 1 ของเดือน" — ตั้งครั้งเดียว ระบบคำนวณให้เองทุกเดือน ถ้าไม่ระบุช่วงเวลาจะปิดทั้งวัน ถ้าระบุจะบล็อกเฉพาะช่วงนั้น</p>
+          <form id="busyRuleForm" class="rule-form">
+            <select id="busyRulePatternType">
+              <option value="weekday">ตามวันในสัปดาห์</option>
+              <option value="dom">ตามวันที่ในเดือน</option>
+            </select>
+
+            <span id="busyRuleWeekdayFields">
+              <select id="busyRuleWeekday">
+                <option value="1">วันจันทร์</option>
+                <option value="2">วันอังคาร</option>
+                <option value="3">วันพุธ</option>
+                <option value="4">วันพฤหัสบดี</option>
+                <option value="5">วันศุกร์</option>
+                <option value="6">วันเสาร์</option>
+                <option value="0">วันอาทิตย์</option>
+              </select>
+              <select id="busyRuleNth">
+                <option value="every">ทุกสัปดาห์</option>
+                <option value="1">สัปดาห์ที่ 1 ของเดือน</option>
+                <option value="2">สัปดาห์ที่ 2 ของเดือน</option>
+                <option value="3">สัปดาห์ที่ 3 ของเดือน</option>
+                <option value="4">สัปดาห์ที่ 4 ของเดือน</option>
+                <option value="last">สัปดาห์สุดท้ายของเดือน</option>
+              </select>
+            </span>
+
+            <span id="busyRuleDomFields" class="hidden">
+              <select id="busyRuleDayOfMonth">
+                <option value="last">วันสุดท้ายของเดือน</option>
+              </select>
+            </span>
+
+            <label style="flex-direction:row;align-items:center;gap:6px;margin:0;">
+              <input type="checkbox" id="busyRulePartial" /> เฉพาะบางช่วงเวลา
+            </label>
+            <span id="busyRuleTimeFields" class="hidden">
+              <input type="time" id="busyRuleStart" />
+              <input type="time" id="busyRuleEnd" />
+              <select id="busyRuleType">
+                <option value="ประชุม">ประชุม</option>
+                <option value="ทำเอกสาร">ทำเอกสาร</option>
+                <option value="อบรม">อบรม</option>
+                <option value="ลา">ลา</option>
+              </select>
+            </span>
+
+            <input type="text" id="busyRuleNote" placeholder="note (ไม่บังคับ)" />
+            <button type="submit">เพิ่มกฎ</button>
+          </form>
+          <ul id="busyRuleList" class="tag-list"></ul>
+        </div>
+
+        <div class="panel">
           <h3>รายการรหัส ICD-10</h3>
           <p class="panel-hint">รหัส <strong>Z501</strong> เป็นรหัสอัตโนมัติหลัก ใส่ให้ทุกนัดเสมอ ลบไม่ได้ — เพิ่มรหัสอื่นไว้เลือกเพิ่มตอนทำนัดได้ที่นี่</p>
           <form id="icd10Form" class="inline-form">
