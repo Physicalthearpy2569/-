@@ -931,10 +931,16 @@ document.getElementById('busyForm')?.addEventListener('submit', async (e) => {
 const DAY_LABELS = { 1: 'จันทร์', 2: 'อังคาร', 3: 'พุธ', 4: 'พฤหัสบดี', 5: 'ศุกร์', 6: 'เสาร์', 0: 'อาทิตย์' };
 
 async function loadSettings() {
-  const [schedRes, closedRes, clinicRes, ruleRes, icd10Res, icd9Res, busyRuleRes] = await Promise.all([
-    api('getSchedule'), api('getClosedDates'), api('getClinicTypes'), api('getClinicRules'),
-    api('getIcd10Codes'), api('getIcd9Codes'), api('getBusyRules')
-  ]); // เรียกพร้อมกัน ลดเวลารอ
+  // เรียกทีละอย่างตามลำดับ (ไม่ยิงพร้อมกันทั้งหมดแบบ Promise.all) เพราะ Apps Script
+  // รับคำขอพร้อมกันได้จำกัด ถ้ายิง 7 คำขอพร้อมกันตอนเปิดหน้าตั้งค่า (ซ้อนกับ getCalendar/getDashboard ที่อาจกำลังโหลดอยู่)
+  // ส่วนใหญ่จะไปค้างคิวรอจนหมดเวลา 20 วิ แล้ว error ทั้งชุด — เรียงคิวทีละตัวช้ากว่าแต่เสถียรกว่ามาก
+  const schedRes = await api('getSchedule');
+  const closedRes = await api('getClosedDates');
+  const clinicRes = await api('getClinicTypes');
+  const ruleRes = await api('getClinicRules');
+  const icd10Res = await api('getIcd10Codes');
+  const icd9Res = await api('getIcd9Codes');
+  const busyRuleRes = await api('getBusyRules');
 
   if (schedRes.ok) renderScheduleForm(schedRes.data); else toast('โหลดเวลาเปิด-ปิดไม่สำเร็จ: ' + schedRes.error);
   if (closedRes.ok) renderClosedList(closedRes.data); else toast('โหลดวันปิดไม่สำเร็จ: ' + closedRes.error);
