@@ -61,6 +61,10 @@ function jsonp_(action, payload) {
   });
 }
 
+// ปลุกสคริปต์ทันทีที่หน้าเว็บโหลด (ก่อนผู้ใช้กดอะไรเลย) เผื่อเครื่องเย็นอยู่ (ไม่มีคนใช้มาสักพัก)
+// กว่าผู้ใช้จะพิมพ์ชื่อ/รหัสผ่านแล้วกดเข้าสู่ระบบเสร็จ สคริปต์มักจะอุ่นพอแล้ว ไม่ต้องรอผลอะไรจากตรงนี้
+jsonp_('ping', {}).catch(() => {});
+
 async function api(action, payload = {}) {
   if (state.token) payload.token = state.token;
   let data;
