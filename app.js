@@ -226,6 +226,7 @@ async function renderCalendar() {
   const now = new Date();
   const pad2 = n => String(n).padStart(2, '0');
   const todayStr = `${now.getFullYear()}-${pad2(now.getMonth() + 1)}-${pad2(now.getDate())}`;
+  state.calendarTodayStr_ = todayStr;
 
   // ไฮไลต์ชื่อวันในหัวตารางของ "วันนี้" (เฉพาะตอนที่กำลังดูเดือนปัจจุบัน และวันนี้ไม่ใช่เสาร์-อาทิตย์)
   document.querySelectorAll('.weekday-row span').forEach((el, i) => {
@@ -235,46 +236,69 @@ async function renderCalendar() {
     el.classList.toggle('today-col', isTodayCol);
   });
 
+  // เก็บข้อมูลดิบของแต่ละวันไว้ใน state ด้วย (key: วันที่) เพื่อให้ "ยกเลิกนัด" แก้ไขช่องของวันนั้นในเครื่องได้ทันที
+  // โดยไม่ต้องขอข้อมูลทั้งเดือนใหม่จากเซิร์ฟเวอร์อีกรอบ (ลดเวลารอหลังกดยกเลิกไปได้มาก)
+  state.calendarDaysByDate_ = {};
   weekdayDays.forEach(day => {
-    const cell = document.createElement('div');
-    const isToday = day.date === todayStr;
-    const isFull = !day.isClosed && day.slotsTotal > 0 && day.slotsAvailable === 0;
-    cell.className = 'day-cell' + (day.isClosed ? ' closed' : '') + (day.clinicColor ? ' has-clinic' : '') +
-      (isToday ? ' today' : '') + (isFull ? ' full' : '');
-    if (day.clinicColor) cell.style.setProperty('--clinic-color', day.clinicColor);
-    const dayNum = Number(day.date.split('-')[2]);
-
-    const clinicLine = day.clinicName
-      ? `<div class="clinic-line" style="color:${day.clinicColor}" title="${(day.clinicNote || '').replace(/"/g, '')}">${day.clinicName}</div>`
-      : '';
-
-    const badges = [];
-    if (day.isSpecialOpen) badges.push(`<span class="badge special-tag">เปิดพิเศษ</span>`);
-    if (isFull) {
-      badges.push(`<span class="badge full-tag">เต็ม</span>`);
-    } else if (!day.isClosed && day.slotsAvailable !== null && day.slotsAvailable !== undefined) {
-      badges.push(`<span class="badge avail-tag">ว่างอีก ${day.slotsAvailable}</span>`);
-    }
-    if (day.opdCount) badges.push(`<span class="badge opd">OPD ${day.opdCount}</span>`);
-    if (day.communityCount) badges.push(`<span class="badge community">ลงชุมชน ${day.communityCount}</span>`);
-    day.busyTypes.forEach(t => badges.push(`<span class="badge busy">${t}</span>`));
-    if (day.isClosed && day.isWeekend && day.busyTypes.length === 0 && !day.opdCount && !day.communityCount) {
-      // วันหยุดสุดสัปดาห์ ไม่ต้องมี badge เพิ่ม
-    } else if (day.isClosed && !day.isWeekend) {
-      badges.push(`<span class="badge closed-tag">ปิด${day.closedReason ? ': ' + day.closedReason : ''}</span>`);
-    }
-
-    cell.innerHTML = `${clinicLine}<div class="day-head"><div class="day-num">${dayNum}</div>${isToday ? '<span class="today-tag">วันนี้</span>' : ''}</div><div class="day-badges">${badges.join('')}</div>`;
-    // นักกายภาพคลิกวันปิดได้ด้วย เพื่อใช้ปุ่ม "เปิดรับพิเศษวันนี้"; เจ้าหน้าที่นัดคลิกได้เฉพาะวันเปิด
-    if (!day.isClosed || state.role === 'physio') {
-      cell.addEventListener('click', () => openDayPanel(day.date));
-    }
-    grid.appendChild(cell);
+    state.calendarDaysByDate_[day.date] = day;
+    grid.appendChild(buildDayCellEl_(day));
   });
+}
 
-  // หมายเหตุ: เดิมเคยดักโหลดเดือนก่อนหน้า/ถัดไปไว้เงียบๆ เบื้องหลังหลังจากนี้ 1.5 วิ เพื่อให้สลับเดือนครั้งถัดไปไวขึ้น
-  // แต่พบว่ามันไปแย่งคิวคำขอกับการกระทำอื่นๆ ที่ผู้ใช้กำลังรออยู่จริง (เช่น บันทึก/ลบ/ยกเลิก) ทำให้ทุกอย่างช้าลงรวมกัน
-  // จึงปิดไว้ก่อน — ตัดการแย่งคิวเบื้องหลังเพื่อให้คำสั่งที่ผู้ใช้รอจริงตอบสนองไวขึ้น
+/** สร้าง element ของช่องวันหนึ่งในปฏิทิน จาก object ข้อมูลวันนั้น (ใช้ร่วมกันทั้งตอน render เต็มเดือน และตอนแก้ไขเฉพาะวันในเครื่องหลังยกเลิกนัด) */
+function buildDayCellEl_(day) {
+  const cell = document.createElement('div');
+  const isToday = day.date === state.calendarTodayStr_;
+  const isFull = !day.isClosed && day.slotsTotal > 0 && day.slotsAvailable === 0;
+  cell.className = 'day-cell' + (day.isClosed ? ' closed' : '') + (day.clinicColor ? ' has-clinic' : '') +
+    (isToday ? ' today' : '') + (isFull ? ' full' : '');
+  cell.dataset.date = day.date;
+  if (day.clinicColor) cell.style.setProperty('--clinic-color', day.clinicColor);
+  const dayNum = Number(day.date.split('-')[2]);
+
+  const clinicLine = day.clinicName
+    ? `<div class="clinic-line" style="color:${day.clinicColor}" title="${(day.clinicNote || '').replace(/"/g, '')}">${day.clinicName}</div>`
+    : '';
+
+  const badges = [];
+  if (day.isSpecialOpen) badges.push(`<span class="badge special-tag">เปิดพิเศษ</span>`);
+  if (isFull) {
+    badges.push(`<span class="badge full-tag">เต็ม</span>`);
+  } else if (!day.isClosed && day.slotsAvailable !== null && day.slotsAvailable !== undefined) {
+    badges.push(`<span class="badge avail-tag">ว่างอีก ${day.slotsAvailable}</span>`);
+  }
+  if (day.opdCount) badges.push(`<span class="badge opd">OPD ${day.opdCount}</span>`);
+  if (day.communityCount) badges.push(`<span class="badge community">ลงชุมชน ${day.communityCount}</span>`);
+  day.busyTypes.forEach(t => badges.push(`<span class="badge busy">${t}</span>`));
+  if (day.isClosed && day.isWeekend && day.busyTypes.length === 0 && !day.opdCount && !day.communityCount) {
+    // วันหยุดสุดสัปดาห์ ไม่ต้องมี badge เพิ่ม
+  } else if (day.isClosed && !day.isWeekend) {
+    badges.push(`<span class="badge closed-tag">ปิด${day.closedReason ? ': ' + day.closedReason : ''}</span>`);
+  }
+
+  cell.innerHTML = `${clinicLine}<div class="day-head"><div class="day-num">${dayNum}</div>${isToday ? '<span class="today-tag">วันนี้</span>' : ''}</div><div class="day-badges">${badges.join('')}</div>`;
+  // นักกายภาพคลิกวันปิดได้ด้วย เพื่อใช้ปุ่ม "เปิดรับพิเศษวันนี้"; เจ้าหน้าที่นัดคลิกได้เฉพาะวันเปิด
+  if (!day.isClosed || state.role === 'physio') {
+    cell.addEventListener('click', () => openDayPanel(day.date));
+  }
+  return cell;
+}
+
+/**
+ * แก้ไขช่องวันเดียวในปฏิทินให้ตรงกับการยกเลิกนัดที่เพิ่งทำในเครื่อง โดยไม่ขอข้อมูลทั้งเดือนใหม่จากเซิร์ฟเวอร์
+ * ใช้ได้เฉพาะตอนที่ปฏิทินเดือนปัจจุบันเคยโหลดสำเร็จมาก่อนแล้วเท่านั้น (ถ้ายังไม่มีข้อมูลวันนั้นเก็บไว้ ให้ไปขอใหม่ตามปกติแทน)
+ */
+function patchCalendarDayAfterCancel_(dateStr, apptType, newSlotsAvailable) {
+  const day = state.calendarDaysByDate_ && state.calendarDaysByDate_[dateStr];
+  if (!day) { renderCalendar(); return; } // ไม่มีข้อมูลเดิมเก็บไว้ (เช่น ยังไม่เคยโหลดเดือนนี้สำเร็จ) ไปขอใหม่ตามปกติ
+
+  if (apptType === 'OPD') day.opdCount = Math.max(0, (day.opdCount || 0) - 1);
+  else if (apptType === 'ลงชุมชน') day.communityCount = Math.max(0, (day.communityCount || 0) - 1);
+  if (newSlotsAvailable !== null && newSlotsAvailable !== undefined) day.slotsAvailable = newSlotsAvailable;
+
+  const oldCell = document.querySelector(`#calendarGrid .day-cell[data-date="${dateStr}"]`);
+  if (!oldCell) return; // วันนั้นไม่ได้อยู่ในหน้าปฏิทินที่กำลังแสดงอยู่ตอนนี้ (เช่น สลับเดือนไปแล้ว) ไม่ต้องทำอะไรต่อ
+  oldCell.replaceWith(buildDayCellEl_(day));
 }
 
 function prefetchAdjacentMonths_() {
@@ -389,7 +413,7 @@ function renderApptList(appts) {
       const res = await api('cancelAppointment', { id: btn.dataset.id });
       if (!res.ok) { toast(res.error); btn.disabled = false; btn.textContent = 'ยกเลิกนัด'; return; }
       toast('ยกเลิกนัดแล้ว');
-      await Promise.all([openDayPanel(state.currentDate), renderCalendar()]); // เรียกพร้อมกัน ลดเวลารอ
+      applyLocalCancel_(btn.dataset.id);
     });
   });
 
@@ -414,6 +438,47 @@ function renderApptList(appts) {
       }
     });
   });
+}
+
+/**
+ * คำนวณช่วงเวลาว่าง/ไม่ว่างใหม่ในเครื่อง — สูตรเดียวกับ buildSlotsFromDefs_ ฝั่งเซิร์ฟเวอร์ (Code.gs) ทุกประการ
+ * ใช้คู่กับ applyLocalCancel_ เพื่อเลี่ยงการขอ getDayDetail ใหม่หลังยกเลิกนัด
+ */
+function recomputeSlots_(slotDefs, busy, appts) {
+  return (slotDefs || []).map(def => {
+    const busyHit = (busy || []).find(b => def.start < b.endTime && b.startTime < def.end);
+    const apptHit = (appts || []).find(a => def.start < a.endTime && a.startTime < def.end);
+    return {
+      start: def.start,
+      end: def.end,
+      available: !busyHit && !apptHit,
+      busyType: busyHit ? busyHit.type : null,
+      appointment: apptHit || null
+    };
+  });
+}
+
+/**
+ * ยกเลิกนัดสำเร็จฝั่งเซิร์ฟเวอร์แล้ว — อัปเดตแผงรายละเอียดวันและช่องในปฏิทินให้ตรงกันในเครื่องทันที
+ * โดยไม่ต้องขอ getDayDetail/getCalendar ใหม่เลย (ทั้งสองตัวเป็นคำขอที่หนักกว่าตัวอื่นๆ ในหน้านี้
+ * เพราะต้องคำนวณช่วงเวลาทั้งหมดของวัน/เดือนใหม่ ยิ่งถ้า Apps Script กำลังหน่วงอยู่ จะยิ่งรอนาน)
+ * ใช้ได้เพราะเรารู้ข้อมูลของนัดที่ถูกยกเลิกอยู่แล้วในเครื่อง (วันที่ ช่วงเวลา ประเภท) และมีสูตรคำนวณช่วงว่างเหมือนฝั่งเซิร์ฟเวอร์ทุกประการ
+ */
+function applyLocalCancel_(apptId) {
+  const detail = state.currentDayDetail;
+  if (!detail) { renderCalendar(); return; }
+  const idx = (detail.appointments || []).findIndex(a => a.id === apptId);
+  if (idx === -1) { openDayPanel(state.currentDate); return; } // ไม่พบในเครื่อง (ไม่ควรเกิดขึ้น) — สำรองด้วยการโหลดใหม่
+  const [cancelled] = detail.appointments.splice(idx, 1);
+
+  if (detail.isOpen) {
+    detail.slots = recomputeSlots_(detail.slotDefs, detail.busy, detail.appointments);
+  }
+  renderApptList(detail.appointments);
+  renderSlots(detail.slots);
+
+  const newSlotsAvailable = detail.isOpen ? detail.slots.filter(s => s.available).length : null;
+  patchCalendarDayAfterCancel_(state.currentDate, cancelled.type, newSlotsAvailable);
 }
 
 /* ---------------- ดูรายละเอียดนัดหมาย ---------------- */
@@ -541,7 +606,7 @@ document.getElementById('apptDetailCancelBtn')?.addEventListener('click', async 
   if (!res.ok) { toast(res.error); return; }
   toast('ยกเลิกนัดแล้ว');
   closeApptDetail();
-  await Promise.all([openDayPanel(state.currentDate), renderCalendar()]);
+  applyLocalCancel_(id);
 });
 
 /* ---------------- คลินิกประจำวัน (แสดง + แก้ไข) ---------------- */
