@@ -6,7 +6,7 @@
 <title>ระบบนัดหมายผู้ป่วย รพ.สต.</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=20261007h" />
+<link rel="stylesheet" href="style.css?v=20261007i" />
 </head>
 <body>
 
@@ -265,6 +265,11 @@
       <ul id="extraSlotList" class="tag-list physio-only" style="margin-top:8px;"></ul>
       <button id="addExtraSlotBtn" class="secondary physio-only" style="width:100%;margin-top:8px;">+ เพิ่มเวลาพิเศษวันนี้</button>
 
+      <div id="busySection" class="hidden">
+        <div class="section-label">ช่วงไม่ว่างวันนี้</div>
+        <ul id="busyList" class="tag-list"></ul>
+      </div>
+
       <div class="section-label">นัดหมายวันนี้</div>
       <ul id="apptList" class="appt-list"></ul>
 
@@ -423,6 +428,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=20261007h"></script>
+  <script src="app.js?v=20261007i"></script>
 </body>
 </html>
