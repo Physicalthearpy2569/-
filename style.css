@@ -18,7 +18,8 @@
   --danger: #B3452F;
   --full: #A83F26;
   --radius: 14px;
-  --font-display: 'Kanit', 'Noto Sans Thai', system-ui, sans-serif;
+  --font-display: 'Noto Serif Thai', 'Noto Sans Thai', system-ui, serif;
+  --font-body: 'Noto Serif Thai', 'Noto Sans Thai', system-ui, serif;
 }
 
 * { box-sizing: border-box; }
@@ -28,13 +29,12 @@ html, body {
   margin: 0;
   background: var(--bg);
   color: var(--ink);
-  font-family: 'Noto Sans Thai', system-ui, sans-serif;
-  font-size: 15px;
-  line-height: 1.5;
+  font-family: var(--font-body);
+  font-size: 17px;
+  line-height: 1.6;
 }
 
-/* ใช้ฟอนต์ Kanit เฉพาะหัวข้อ/ป้ายแบรนด์ขนาดใหญ่เท่านั้น ไม่ใช้กับตัวเลข/ป้ายขนาดเล็กที่ต้องอ่านเร็วๆ (วันที่ในปฏิทิน, เวลานัด, ปุ่มช่วงเวลา)
-   เพราะ Kanit เป็นฟอนต์ทรงเรขาคณิตที่ตัวอักษรชิดกัน อ่านสบายตอนตัวใหญ่แต่ตัวเล็กจะอ่านยากกว่า Noto Sans Thai เดิม */
+/* เลือกฟอนต์ตามที่ชอบในหน้าพรีวิว: Noto Serif Thai (มีเชิง) ทั้งหัวข้อและเนื้อหา ขนาด "ใหญ่พิเศษ" ให้อ่านง่ายขึ้นทั้งแอป */
 h1, h2, h3,
 .brand, .login-card h1, .month-nav h2,
 .day-panel h3, .modal h3, .kpi-num {
@@ -54,7 +54,7 @@ button {
 
 input, select {
   font-family: inherit;
-  font-size: 14px;
+  font-size: 16px;
   padding: 8px 10px;
   border: 1px solid var(--line);
   border-radius: 6px;
@@ -67,7 +67,7 @@ label {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  font-size: 13px;
+  font-size: 15px;
   color: var(--ink-soft);
   margin-bottom: 12px;
 }
@@ -93,7 +93,7 @@ label {
 
 .error-text {
   color: var(--danger);
-  font-size: 13px;
+  font-size: 15px;
   min-height: 18px;
 }
 
@@ -124,19 +124,19 @@ label {
   font-weight: 700;
   padding: 6px 12px;
   border-radius: 6px;
-  font-size: 13px;
+  font-size: 15px;
   margin-bottom: 16px;
 }
 
 .login-card h1 {
-  font-size: 22px;
+  font-size: 24px;
   margin: 0 0 4px;
 }
 
 .login-sub {
   color: var(--ink-soft);
   margin: 0 0 24px;
-  font-size: 14px;
+  font-size: 16px;
 }
 
 .login-card button[type="submit"] {
@@ -168,7 +168,7 @@ label {
 
 .brand {
   font-weight: 700;
-  font-size: 17px;
+  font-size: 19px;
   margin-bottom: 28px;
 }
 .brand span { font-weight: 400; opacity: 0.8; }
@@ -185,7 +185,7 @@ label {
   padding: 10px 14px;
   border-radius: 8px;
   color: #CFE4E0;
-  font-size: 14px;
+  font-size: 16px;
 }
 .navBtn:hover { background: rgba(255,255,255,0.08); }
 .navBtn.active { background: rgba(255,255,255,0.14); color: #fff; font-weight: 600; }
@@ -195,10 +195,10 @@ label {
   padding-top: 16px;
   margin-top: 16px;
 }
-.who-name { font-weight: 600; font-size: 14px; }
-.who-role { font-size: 12px; color: #A9CBC5; margin-bottom: 10px; }
+.who-name { font-weight: 600; font-size: 16px; }
+.who-role { font-size: 14px; color: #A9CBC5; margin-bottom: 10px; }
 #logoutBtn {
-  font-size: 13px;
+  font-size: 15px;
   color: #EAF3F1;
   text-decoration: underline;
   padding: 0;
@@ -224,7 +224,7 @@ label {
   gap: 14px;
 }
 .month-nav button {
-  font-size: 20px;
+  font-size: 22px;
   width: 32px;
   height: 32px;
   border-radius: 8px;
@@ -232,12 +232,12 @@ label {
   border: 1px solid var(--line);
 }
 .month-nav button:disabled { opacity: 0.4; cursor: default; }
-.month-nav h2 { margin: 0; font-size: 20px; min-width: 160px; text-align: center; }
+.month-nav h2 { margin: 0; font-size: 22px; min-width: 160px; text-align: center; }
 
 .legend {
   display: flex;
   gap: 16px;
-  font-size: 13px;
+  font-size: 15px;
   color: var(--ink-soft);
 }
 .legend-item { display: flex; align-items: center; gap: 6px; }
@@ -260,7 +260,7 @@ label {
 .weekday-row span {
   text-align: center;
   font-weight: 700;
-  font-size: 15px;
+  font-size: 17px;
   padding: 9px 0;
   border-radius: 8px;
   background: var(--teal);
@@ -272,7 +272,7 @@ label {
 .calendar-grid {
   display: grid;
   grid-template-columns: repeat(5, 1fr);
-  grid-auto-rows: 96px; /* ทุกแถวสูงเท่ากันเสมอ ไม่ว่าวันไหนจะมีชื่อคลินิก/ป้ายเยอะแค่ไหน */
+  grid-auto-rows: 108px; /* ทุกแถวสูงเท่ากันเสมอ ไม่ว่าวันไหนจะมีชื่อคลินิก/ป้ายเยอะแค่ไหน (ปรับสูงขึ้นให้พอดีกับตัวอักษรขนาดใหญ่พิเศษ) */
   gap: 8px;
 }
 
@@ -280,7 +280,7 @@ label {
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  height: 96px;
+  height: 108px;
   overflow: hidden; /* กันเนื้อหาล้นขยายกล่อง เช่น ชื่อคลินิกยาวๆ หรือป้ายเยอะๆ */
   padding: 8px;
   display: flex;
@@ -310,7 +310,7 @@ label {
   justify-content: center;
 }
 .day-cell.today .today-tag { color: #fff; }
-.today-tag { font-size: 10px; font-weight: 700; color: var(--teal-dark); }
+.today-tag { font-size: 11px; font-weight: 700; color: var(--teal-dark); }
 
 /* วันเต็ม: เดิมพื้นแดงเต็มช่อง เปลี่ยนเป็นพื้นปกติ ให้พื้นแดงเฉพาะคำว่า "เต็ม" พอ จะได้ไม่จัดจ้านทั้งช่อง แต่ยังสังเกตเห็นง่ายจากป้ายสีแดงเด่นๆ + ขอบด้านซ้าย */
 .day-cell.full { border-left: 4px solid var(--full); }
@@ -318,7 +318,7 @@ label {
 .badge.full-tag { background: var(--full); color: #fff; font-weight: 700; }
 .day-cell.today.full { border-left: 4px solid var(--full); box-shadow: 0 0 0 3px #2E7D32; }
 
-.day-num { font-weight: 600; font-size: 14px; }
+.day-num { font-weight: 600; font-size: 16px; }
 /* ชื่อคลินิก: เดิมเป็นแค่ตัวหนังสือสีลอยๆ บนพื้นการ์ด อ่านยากถ้าสีที่ตั้งไว้สว่าง — ใส่พื้นหลังโทนอ่อนของสีคลินิกนั้นเองให้เป็น "ป้าย" ชัดเจน
    ใช้ color-mix() ผสมสีคลินิก (currentColor) กับสีขาวสด เพื่อได้พื้นหลังโทนเดียวกับสีที่ตั้งไว้แบบอัตโนมัติ ไม่ต้องคำนวณเฉดเองทีละสี */
 .clinic-line {
@@ -330,7 +330,7 @@ label {
   padding: 2px 8px;
   border-radius: 999px;
   font-weight: 700;
-  font-size: 11px;
+  font-size: 13px;
   line-height: 1.4;
   margin-bottom: 4px;
   overflow: hidden;
@@ -340,7 +340,7 @@ label {
 
 .day-badges { display: flex; flex-wrap: wrap; gap: 4px; margin-top: auto; }
 .badge {
-  font-size: 11px;
+  font-size: 13px;
   padding: 2px 7px;
   border-radius: 999px;
   font-weight: 600;
@@ -357,7 +357,7 @@ label {
 .day-cell.has-clinic { border-top: 3px solid var(--clinic-color, transparent); }
 
 .calendar-grid.loading { opacity: 0.5; pointer-events: none; }
-.calendar-loading-msg { grid-column: 1 / -1; text-align: center; padding: 60px 0; color: var(--ink-soft); font-size: 14px; }
+.calendar-loading-msg { grid-column: 1 / -1; text-align: center; padding: 60px 0; color: var(--ink-soft); font-size: 16px; }
 
 /* ---------------- Settings ---------------- */
 
@@ -369,7 +369,7 @@ label {
   margin-bottom: 20px;
   max-width: 640px;
 }
-.panel h3 { margin-top: 0; font-size: 15px; }
+.panel h3 { margin-top: 0; font-size: 17px; }
 .panel h3.panel-toggle {
   display: flex;
   justify-content: space-between;
@@ -378,11 +378,11 @@ label {
   user-select: none;
   margin-bottom: 0;
 }
-.panel-chevron { color: var(--ink-soft); font-size: 12px; transition: transform 0.15s; flex-shrink: 0; }
+.panel-chevron { color: var(--ink-soft); font-size: 14px; transition: transform 0.15s; flex-shrink: 0; }
 .panel-body { margin-top: 14px; }
 .panel.collapsed .panel-body { display: none; }
 .panel.collapsed .panel-chevron { transform: rotate(-90deg); }
-.panel-hint { color: var(--ink-soft); font-size: 13px; margin-top: -8px; margin-bottom: 14px; }
+.panel-hint { color: var(--ink-soft); font-size: 15px; margin-top: -8px; margin-bottom: 14px; }
 
 .color-swatch {
   display: inline-block;
@@ -405,10 +405,10 @@ label {
   justify-content: space-between;
   align-items: center;
   font-weight: 600;
-  font-size: 14px;
+  font-size: 16px;
   margin-bottom: 8px;
 }
-.weekday-header label { display: flex; align-items: center; gap: 6px; font-weight: 400; font-size: 13px; color: var(--ink-soft); }
+.weekday-header label { display: flex; align-items: center; gap: 6px; font-weight: 400; font-size: 15px; color: var(--ink-soft); }
 
 .slot-editor-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 8px; }
 .slot-row {
@@ -420,7 +420,7 @@ label {
 .slot-row span { color: var(--ink-soft); }
 .remove-slot-btn {
   color: var(--danger);
-  font-size: 18px;
+  font-size: 20px;
   line-height: 1;
   width: 28px;
   height: 28px;
@@ -428,7 +428,7 @@ label {
   border-radius: 6px;
 }
 .remove-slot-btn:hover { background: var(--bg); }
-.add-slot-btn { font-size: 13px; padding: 6px 12px; }
+.add-slot-btn { font-size: 15px; padding: 6px 12px; }
 
 .inline-form {
   display: flex;
@@ -475,9 +475,9 @@ label {
   background: var(--bg);
   border-radius: 8px;
   padding: 8px 12px;
-  font-size: 13px;
+  font-size: 15px;
 }
-.tag-list button { color: var(--danger); font-size: 12px; font-weight: 600; white-space: nowrap; }
+.tag-list button { color: var(--danger); font-size: 14px; font-weight: 600; white-space: nowrap; }
 .busy-item-actions { display: flex; gap: 10px; flex-shrink: 0; }
 .busy-edit-btn { color: var(--teal); }
 
@@ -511,15 +511,15 @@ label {
   align-items: center;
   margin-bottom: 12px;
 }
-.day-panel h3 { margin: 0; font-size: 17px; }
-#closeDayPanel { font-size: 22px; line-height: 1; color: var(--ink-soft); }
+.day-panel h3 { margin: 0; font-size: 19px; }
+#closeDayPanel { font-size: 24px; line-height: 1; color: var(--ink-soft); }
 
 .closed-note {
   background: var(--taupe-tint);
   color: #5B5347;
   padding: 10px 12px;
   border-radius: 8px;
-  font-size: 13px;
+  font-size: 15px;
   margin-bottom: 14px;
 }
 
@@ -539,7 +539,7 @@ label {
 .day-toggle-actions button { width: 100%; }
 
 .section-label {
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 700;
   color: var(--ink-soft);
   margin: 18px 0 8px;
@@ -551,7 +551,7 @@ label {
   border: 1px solid var(--line);
   border-radius: 10px;
   padding: 6px 10px;
-  font-size: 12px;
+  font-size: 14px;
   background: var(--surface);
 }
 .slot-btn.available { border-color: var(--teal-tint); background: var(--teal-tint); color: var(--teal-dark); }
@@ -563,22 +563,22 @@ label {
   border: 1px solid var(--line);
   border-radius: 8px;
   padding: 10px 12px;
-  font-size: 13px;
+  font-size: 15px;
 }
 .appt-time { font-weight: 700; margin-inline-end: 8px; }
 .appt-list li.attended { background: #F3FAF5; border-color: #BFE3C9; }
 .badge.attended-tag { background: var(--teal-tint); color: var(--teal-dark); } /* เดิมเป็นเขียวมินต์สด ปรับให้อยู่ในโทนเอิร์ธเดียวกับป้ายอื่นๆ */
 .appt-actions { display: flex; gap: 10px; align-items: center; margin-top: 8px; flex-wrap: wrap; }
-.appt-cancel { color: var(--danger); font-size: 12px; font-weight: 600; }
+.appt-cancel { color: var(--danger); font-size: 14px; font-weight: 600; }
 .appt-attend {
   color: var(--teal-dark);
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 600;
   border: 1px solid var(--teal);
   border-radius: 6px;
   padding: 3px 10px;
 }
-.appt-unattend { color: var(--ink-soft); font-size: 12px; text-decoration: underline; }
+.appt-unattend { color: var(--ink-soft); font-size: 14px; text-decoration: underline; }
 
 #physioBusyBtn { width: 100%; margin-top: 18px; }
 
@@ -603,7 +603,7 @@ label {
 .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 6px; }
 
 .detail-body { display: flex; flex-direction: column; gap: 10px; margin-bottom: 6px; }
-.detail-row { display: flex; justify-content: space-between; gap: 12px; font-size: 13px; border-bottom: 1px solid var(--line); padding-bottom: 8px; }
+.detail-row { display: flex; justify-content: space-between; gap: 12px; font-size: 15px; border-bottom: 1px solid var(--line); padding-bottom: 8px; }
 .detail-label { color: var(--ink-soft); flex-shrink: 0; }
 .detail-value { text-align: right; font-weight: 600; }
 
@@ -618,7 +618,7 @@ label {
   color: #fff;
   padding: 12px 20px;
   border-radius: 8px;
-  font-size: 13px;
+  font-size: 15px;
   z-index: 50;
 }
 
@@ -640,36 +640,36 @@ label {
     padding: 10px 14px;
     gap: 10px;
   }
-  .brand { margin-bottom: 0; font-size: 15px; }
+  .brand { margin-bottom: 0; font-size: 17px; }
   .sidebar nav { flex-direction: row; flex: 1; justify-content: center; }
-  .navBtn { padding: 10px 12px; font-size: 13px; text-align: center; }
+  .navBtn { padding: 10px 12px; font-size: 15px; text-align: center; }
   .who { display: none; }
-  #logoutBtn { font-size: 12px; }
+  #logoutBtn { font-size: 14px; }
   .content { padding: 14px; }
 
   .view-head { gap: 8px; }
-  .month-nav h2 { font-size: 17px; min-width: 0; }
+  .month-nav h2 { font-size: 19px; min-width: 0; }
   .month-nav button { width: 40px; height: 40px; } /* ปุ่มกดสะดวกด้วยนิ้ว */
   .legend { display: none; } /* จอแคบไม่พอ ไปดูสีในแต่ละวันแทน */
 
   .weekday-row { gap: 3px; margin-bottom: 4px; }
-  .weekday-row span { font-size: 12px; padding: 6px 0; }
+  .weekday-row span { font-size: 14px; padding: 6px 0; }
   .weekday-row span::before { content: attr(data-short); }
   .today-tag { display: none; }
   .calendar-grid { gap: 3px; grid-auto-rows: 58px; }
   .day-cell { height: 58px; padding: 4px; border-radius: 8px; }
-  .day-num { font-size: 12px; }
+  .day-num { font-size: 14px; }
   .clinic-line { font-size: 0; line-height: 0; height: 6px; margin-bottom: 2px; border-radius: 3px; background: currentColor; }
   .day-badges { gap: 2px; }
   .badge { font-size: 0; padding: 0; width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
   .badge.avail-tag, .badge.closed-tag, .badge.opd, .badge.community, .badge.full-tag, .badge.attended-tag {
-    font-size: 9px; padding: 1px 5px; border-radius: 999px; width: auto; height: auto;
+    font-size: 10px; padding: 1px 5px; border-radius: 999px; width: auto; height: auto;
   }
 
   .day-panel { width: 100%; max-width: 100%; left: 0; border-radius: 16px 16px 0 0; top: auto; bottom: 0; height: 88vh; }
   .modal { width: 92vw; max-height: 86vh; overflow-y: auto; }
   .rule-form select, .rule-form input[type="text"] { min-width: 100%; flex-basis: 100%; }
-  .schedule-row { grid-template-columns: 70px auto 1fr 1fr 70px; font-size: 12px; gap: 6px; }
+  .schedule-row { grid-template-columns: 70px auto 1fr 1fr 70px; font-size: 14px; gap: 6px; }
   .slot-row input[type="time"] { flex-basis: 90px; }
 }
 
@@ -677,48 +677,48 @@ label {
 
 .dash-filter { display: flex; flex-wrap: wrap; gap: 12px 20px; align-items: center; margin-bottom: 8px; }
 .dash-presets { display: flex; flex-wrap: wrap; gap: 8px; }
-.dash-presets button { padding: 8px 14px; font-size: 13px; }
+.dash-presets button { padding: 8px 14px; font-size: 15px; }
 .dash-presets button.active { background: var(--teal); color: #fff; border-color: var(--teal); }
-.dash-range { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; color: var(--ink-soft); font-size: 13px; }
+.dash-range { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; color: var(--ink-soft); font-size: 15px; }
 .dash-range input[type="date"] { width: auto; }
 .dash-range .primary { padding: 8px 16px; }
 
 .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin: 14px 0 20px; }
 .kpi-card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px; }
 .kpi-card.hero { background: var(--teal); border-color: var(--teal); color: #fff; }
-.kpi-num { font-size: 30px; font-weight: 700; line-height: 1.1; }
-.kpi-label { font-size: 13px; margin-top: 4px; }
-.kpi-sub { font-size: 12px; color: var(--ink-soft); margin-top: 2px; }
+.kpi-num { font-size: 32px; font-weight: 700; line-height: 1.1; }
+.kpi-label { font-size: 15px; margin-top: 4px; }
+.kpi-sub { font-size: 14px; color: var(--ink-soft); margin-top: 2px; }
 .kpi-card.hero .kpi-sub { color: rgba(255,255,255,0.8); }
 
 .dash-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 16px; }
 .dash-panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px 18px; }
 .dash-panel.wide { grid-column: 1 / -1; }
-.dash-panel h3 { margin: 0 0 4px; font-size: 15px; }
-.dash-sub { color: var(--ink-soft); font-size: 12px; margin: 0 0 12px; }
-.dash-empty { color: var(--ink-soft); font-size: 13px; padding: 10px 0; }
+.dash-panel h3 { margin: 0 0 4px; font-size: 17px; }
+.dash-sub { color: var(--ink-soft); font-size: 14px; margin: 0 0 12px; }
+.dash-empty { color: var(--ink-soft); font-size: 15px; padding: 10px 0; }
 
-.bar-legend { display: flex; gap: 14px; font-size: 12px; color: var(--ink-soft); margin-bottom: 10px; }
+.bar-legend { display: flex; gap: 14px; font-size: 14px; color: var(--ink-soft); margin-bottom: 10px; }
 .bar-legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-inline-end: 5px; vertical-align: middle; }
 
-.hbar-row { display: grid; grid-template-columns: 110px 1fr 64px; gap: 10px; align-items: center; padding: 5px 0; font-size: 13px; }
+.hbar-row { display: grid; grid-template-columns: 110px 1fr 64px; gap: 10px; align-items: center; padding: 5px 0; font-size: 15px; }
 .hbar-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .hbar-track { position: relative; height: 16px; background: var(--bg); border-radius: 999px; overflow: hidden; }
 .hbar-total { position: absolute; inset: 0 auto 0 0; background: var(--line); border-radius: 999px; }
 .hbar-attended { position: absolute; inset: 0 auto 0 0; background: var(--bar-color, var(--teal)); border-radius: 999px; }
-.hbar-num { text-align: right; font-weight: 600; font-size: 12px; white-space: nowrap; }
+.hbar-num { text-align: right; font-weight: 600; font-size: 14px; white-space: nowrap; }
 
 .trend-chart { display: flex; align-items: flex-end; gap: 3px; height: 170px; padding-top: 8px; overflow-x: auto; }
 .trend-col { flex: 1 0 14px; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; min-width: 14px; }
 .trend-bars { position: relative; width: 100%; flex: 1; display: flex; align-items: flex-end; }
 .trend-total { position: absolute; bottom: 0; left: 0; right: 0; background: var(--line); border-radius: 4px 4px 0 0; }
 .trend-attended { position: absolute; bottom: 0; left: 15%; right: 15%; background: var(--teal); border-radius: 4px 4px 0 0; }
-.trend-label { font-size: 10px; color: var(--ink-soft); margin-top: 4px; white-space: nowrap; }
+.trend-label { font-size: 11px; color: var(--ink-soft); margin-top: 4px; white-space: nowrap; }
 
 @media (max-width: 720px) {
   .dash-grid { grid-template-columns: 1fr; }
   .kpi-grid { grid-template-columns: repeat(2, 1fr); }
-  .kpi-num { font-size: 26px; }
+  .kpi-num { font-size: 28px; }
   .hbar-row { grid-template-columns: 82px 1fr 56px; gap: 8px; }
   .dash-range input[type="date"] { flex: 1 1 130px; }
 }
@@ -727,14 +727,14 @@ label {
 
 .icd-slots { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
 .icd-slot-row { display: flex; align-items: center; gap: 8px; }
-.icd-slot-label { font-size: 11px; color: var(--ink-soft); width: 20px; flex-shrink: 0; text-align: right; }
+.icd-slot-label { font-size: 13px; color: var(--ink-soft); width: 20px; flex-shrink: 0; text-align: right; }
 .icd-slot-auto {
   flex: 1;
   background: var(--teal-tint);
   color: var(--teal-dark);
   border-radius: 6px;
   padding: 8px 10px;
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 600;
 }
-.icd-slot-row select { width: auto; flex: 1; font-size: 13px; }
+.icd-slot-row select { width: auto; flex: 1; font-size: 15px; }
