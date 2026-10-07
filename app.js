@@ -1030,29 +1030,22 @@ document.getElementById('busyForm')?.addEventListener('submit', async (e) => {
 const DAY_LABELS = { 1: 'จันทร์', 2: 'อังคาร', 3: 'พุธ', 4: 'พฤหัสบดี', 5: 'ศุกร์', 6: 'เสาร์', 0: 'อาทิตย์' };
 
 async function loadSettings() {
-  // เรียกทีละอย่างตามลำดับ (ไม่ยิงพร้อมกันทั้งหมดแบบ Promise.all) เพราะ Apps Script
-  // รับคำขอพร้อมกันได้จำกัด ถ้ายิง 7 คำขอพร้อมกันตอนเปิดหน้าตั้งค่า (ซ้อนกับ getCalendar/getDashboard ที่อาจกำลังโหลดอยู่)
-  // ส่วนใหญ่จะไปค้างคิวรอจนหมดเวลา 20 วิ แล้ว error ทั้งชุด — เรียงคิวทีละตัวช้ากว่าแต่เสถียรกว่ามาก
-  // ใช้ loadSettings() เต็มรูปแบบนี้เฉพาะตอน "เข้าหน้าตั้งค่าครั้งแรก" หรือกดปุ่ม "โหลดใหม่" เท่านั้น
-  // ส่วนการบันทึก/ลบแต่ละหัวข้อ ให้เรียก reload เฉพาะหัวข้อนั้น (ดูฟังก์ชัน reload*_ ด้านล่าง) เพื่อไม่ต้องยิงทั้ง 7 คำขอซ้ำทุกครั้ง
-  const schedRes = await api('getSchedule');
-  const closedRes = await api('getClosedDates');
-  const clinicRes = await api('getClinicTypes');
-  const ruleRes = await api('getClinicRules');
-  const icd10Res = await api('getIcd10Codes');
-  const icd9Res = await api('getIcd9Codes');
-  const busyRuleRes = await api('getBusyRules');
+  // เดิมหน้านี้เคยยิง 7 คำขอแยกกัน (เรียงลำดับทีละตัวเพื่อกัน Apps Script รับพร้อมกันไม่ไหว) ทำให้เปิดหน้าตั้งค่าครั้งแรกช้ามาก
+  // เพราะค่าใช้จ่ายหลักไม่ได้อยู่ที่การอ่านชีต (ซึ่งมีแคชอยู่แล้ว) แต่อยู่ที่ "ค่าใช้จ่ายคงที่ต่อการยิงคำขอ 1 ครั้ง" ของ Apps Script Web App
+  // ตอนนี้รวมทั้ง 7 ชุดไว้ในคำขอเดียว (getSettingsBundle) ฝั่งเซิร์ฟเวอร์รวมให้เสร็จในการประมวลผลครั้งเดียว ลดจาก 7 คำขอ เหลือ 1 คำขอ
+  const res = await api('getSettingsBundle');
+  if (!res.ok) { toast('โหลดข้อมูลหน้าตั้งค่าไม่สำเร็จ: ' + res.error); return; }
+  const d = res.data;
 
-  if (schedRes.ok) renderScheduleForm(schedRes.data); else toast('โหลดเวลาเปิด-ปิดไม่สำเร็จ: ' + schedRes.error);
-  if (closedRes.ok) renderClosedList(closedRes.data); else toast('โหลดวันปิดไม่สำเร็จ: ' + closedRes.error);
-  if (clinicRes.ok) { state.clinicTypes = clinicRes.data; renderClinicTypesList(clinicRes.data); renderRuleClinicSelect(clinicRes.data); } else toast('โหลดประเภทคลินิกไม่สำเร็จ: ' + clinicRes.error);
-  if (ruleRes.ok) renderClinicRulesList(ruleRes.data); else toast('โหลดกฎคลินิกไม่สำเร็จ: ' + ruleRes.error);
-  if (icd10Res.ok) { state.icd10Codes = icd10Res.data; renderIcdCodeList_('icd10List', icd10Res.data, 'removeIcd10Code', reloadIcd10_); } else toast('โหลดรหัส ICD-10 ไม่สำเร็จ: ' + icd10Res.error);
-  if (icd9Res.ok) { state.icd9Codes = icd9Res.data; renderIcdCodeList_('icd9List', icd9Res.data, 'removeIcd9Code', reloadIcd9_); } else toast('โหลดรหัส ICD-9 ไม่สำเร็จ: ' + icd9Res.error);
-  if (busyRuleRes.ok) renderBusyRulesList(busyRuleRes.data); else toast('โหลดกฎปิดอัตโนมัติไม่สำเร็จ: ' + busyRuleRes.error);
+  renderScheduleForm(d.schedule);
+  renderClosedList(d.closedDates);
+  state.clinicTypes = d.clinicTypes; renderClinicTypesList(d.clinicTypes); renderRuleClinicSelect(d.clinicTypes);
+  renderClinicRulesList(d.clinicRules);
+  state.icd10Codes = d.icd10; renderIcdCodeList_('icd10List', d.icd10, 'removeIcd10Code', reloadIcd10_);
+  state.icd9Codes = d.icd9; renderIcdCodeList_('icd9List', d.icd9, 'removeIcd9Code', reloadIcd9_);
+  renderBusyRulesList(d.busyRules);
 
-  // ให้โหลดใหม่อัตโนมัติได้อีกครั้งถ้ารอบนี้มีบางส่วนล้มเหลว (ไม่ล็อกว่า "โหลดแล้ว" ทั้งที่ข้อมูลไม่ครบ)
-  state.settingsLoaded = schedRes.ok && closedRes.ok && clinicRes.ok && ruleRes.ok && icd10Res.ok && icd9Res.ok && busyRuleRes.ok;
+  state.settingsLoaded = true;
 }
 
 // รีโหลดเฉพาะหัวข้อเดียว ใช้แทน loadSettings() เต็มรูปแบบหลังบันทึก/ลบในแต่ละหัวข้อ
