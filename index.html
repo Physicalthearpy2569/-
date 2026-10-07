@@ -110,6 +110,12 @@
 
         <div class="panel">
           <h3>วันปิดเฉพาะกิจ / วันหยุดนักขัตฤกษ์</h3>
+          <p class="panel-hint">ดึงวันหยุดราชการจากปฏิทินของ Google อัตโนมัติ ไม่ต้องกดเพิ่มทีละวัน (กดได้ปีละครั้ง หรือเมื่อต้องการปีถัดไป)</p>
+          <div class="inline-form">
+            <select id="holidaySyncYear"></select>
+            <button type="button" id="syncHolidaysBtn" class="secondary">ดึงวันหยุดราชการ</button>
+          </div>
+          <p id="holidaySyncMsg" class="panel-hint"></p>
           <form id="closedDateForm" class="inline-form">
             <input type="date" id="closedDateInput" required />
             <input type="text" id="closedReasonInput" placeholder="เหตุผล เช่น วันหยุดสงกรานต์" />
@@ -404,17 +410,17 @@
     <div class="section-label" style="margin-top:0;">แก้ไขเลขบัตรประชาชน</div>
     <div class="icd-slot-row" style="margin-bottom:4px;">
       <input type="text" id="detailNationalId" maxlength="13" inputmode="numeric" placeholder="13 หลัก (ไม่บังคับ)" style="flex:1;" />
-      <button type="button" class="secondary" id="detailSaveNationalIdBtn">บันทึก</button>
     </div>
-    <p id="detailNationalIdError" class="error-text"></p>
 
     <div class="physio-only">
       <div class="section-label">แก้ไขรหัส ICD-10</div>
       <div class="icd-slots" id="detailIcd10Slots"></div>
       <div class="section-label">แก้ไขรหัส ICD-9</div>
       <div class="icd-slots" id="detailIcd9Slots"></div>
-      <button type="button" class="secondary" id="detailSaveIcdBtn" style="width:100%;margin-bottom:14px;">บันทึกรหัส ICD</button>
     </div>
+
+    <p id="detailSaveError" class="error-text"></p>
+    <button type="button" class="secondary" id="detailSaveAllBtn" style="width:100%;margin-bottom:14px;">บันทึกการแก้ไข</button>
 
     <div class="modal-actions">
       <button type="button" class="primary physio-only" id="apptDetailAttendBtn">บันทึกว่ามาทำกายภาพแล้ว ✓</button>
