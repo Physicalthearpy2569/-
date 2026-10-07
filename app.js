@@ -21,7 +21,7 @@ const state = {
 
 /* ---------------- API helper (ใช้ JSONP เพื่อเลี่ยงปัญหา CORS ของ Apps Script) ---------------- */
 
-const JSONP_TIMEOUT_MS = 20000; // ถ้าเกิน 20 วิไม่มีการตอบกลับ ถือว่าเชื่อมต่อไม่สำเร็จ ไม่ปล่อยให้ค้างเงียบๆ ไม่มีที่สิ้นสุด
+const JSONP_TIMEOUT_MS = 30000; // ถ้าเกิน 30 วิไม่มีการตอบกลับ ถือว่าเชื่อมต่อไม่สำเร็จ ไม่ปล่อยให้ค้างเงียบๆ ไม่มีที่สิ้นสุด
 
 function jsonp_(action, payload) {
   return new Promise((resolve, reject) => {
@@ -206,27 +206,36 @@ async function renderCalendar() {
 
   grid.innerHTML = '';
 
-  const firstDate = new Date(reqYear, reqMonth - 1, 1);
-  // ต้องการให้จันทร์เป็นคอลัมน์แรก: JS getDay() = 0(อา)-6(ส) -> แปลงเป็น 0(จ)-6(อา)
-  const leadingBlank = (firstDate.getDay() + 6) % 7;
+  // ตัดเสาร์-อาทิตย์ออกจากปฏิทินไปเลย ไม่แสดงเป็นคอลัมน์อีกต่อไป (เหลือแค่ จ-ศ)
+  const weekdayDays = res.data.filter(day => {
+    const dow = new Date(day.date + 'T00:00:00').getDay();
+    return dow !== 0 && dow !== 6;
+  });
 
-  for (let i = 0; i < leadingBlank; i++) {
-    const blank = document.createElement('div');
-    blank.className = 'day-cell other-month';
-    grid.appendChild(blank);
+  if (weekdayDays.length) {
+    // จำนวนช่องว่างนำหน้า คำนวณจากวันในสัปดาห์ (จ=0 ... ศ=4) ของวันทำการวันแรกของเดือน
+    const firstDow = new Date(weekdayDays[0].date + 'T00:00:00').getDay(); // 1(จ)-5(ศ)
+    const leadingBlank = firstDow - 1;
+    for (let i = 0; i < leadingBlank; i++) {
+      const blank = document.createElement('div');
+      blank.className = 'day-cell other-month';
+      grid.appendChild(blank);
+    }
   }
 
   const now = new Date();
   const pad2 = n => String(n).padStart(2, '0');
   const todayStr = `${now.getFullYear()}-${pad2(now.getMonth() + 1)}-${pad2(now.getDate())}`;
 
-  // ไฮไลต์ชื่อวันในหัวตารางของ "วันนี้" (เฉพาะตอนที่กำลังดูเดือนปัจจุบัน)
+  // ไฮไลต์ชื่อวันในหัวตารางของ "วันนี้" (เฉพาะตอนที่กำลังดูเดือนปัจจุบัน และวันนี้ไม่ใช่เสาร์-อาทิตย์)
   document.querySelectorAll('.weekday-row span').forEach((el, i) => {
-    const isTodayCol = reqYear === now.getFullYear() && reqMonth === now.getMonth() + 1 && i === (now.getDay() + 6) % 7;
+    const todayDow = now.getDay(); // 0(อา)-6(ส)
+    const isTodayCol = reqYear === now.getFullYear() && reqMonth === now.getMonth() + 1 &&
+      todayDow >= 1 && todayDow <= 5 && i === todayDow - 1;
     el.classList.toggle('today-col', isTodayCol);
   });
 
-  res.data.forEach(day => {
+  weekdayDays.forEach(day => {
     const cell = document.createElement('div');
     const isToday = day.date === todayStr;
     const isFull = !day.isClosed && day.slotsTotal > 0 && day.slotsAvailable === 0;
@@ -384,7 +393,9 @@ function renderApptList(appts) {
     });
   });
 
-  // บันทึก/ยกเลิกการบันทึกว่า "มาทำกายภาพแล้ว" (ไม่กระทบปฏิทิน จึงรีเฟรชแค่แผงรายละเอียดวัน)
+  // บันทึก/ยกเลิกการบันทึกว่า "มาทำกายภาพแล้ว"
+  // ไม่กระทบจำนวน OPD/ชุมชนหรือช่วงเวลาว่างในปฏิทิน จึงอัปเดตเฉพาะข้อมูลในเครื่อง (local state)
+  // แล้ว render รายการนัดใหม่ทันที โดยไม่ต้องยิง getDayDetail ซ้ำ — เร็วขึ้นมาก ไม่มีการรอเครือข่ายรอบสอง
   list.querySelectorAll('.appt-attend, .appt-unattend').forEach(btn => {
     btn.addEventListener('click', async () => {
       const attended = btn.classList.contains('appt-attend');
@@ -392,7 +403,15 @@ function renderApptList(appts) {
       const res = await api('markAttended', { id: btn.dataset.id, attended });
       if (!res.ok) { toast(res.error); btn.disabled = false; return; }
       toast(attended ? 'บันทึกว่ามาทำกายภาพแล้ว' : 'ยกเลิกการบันทึกแล้ว');
-      await openDayPanel(state.currentDate);
+      const appt = (state.currentDayDetail?.appointments || []).find(a => a.id === btn.dataset.id);
+      if (appt) {
+        appt.attendedAt = attended ? new Date().toISOString() : '';
+        appt.attendedBy = attended ? state.displayName : '';
+        renderApptList(state.currentDayDetail.appointments);
+      } else {
+        // ไม่พบใน state (ไม่ควรเกิดขึ้น) — สำรองด้วยการโหลดใหม่
+        await openDayPanel(state.currentDate);
+      }
     });
   });
 }
@@ -478,8 +497,17 @@ document.getElementById('detailSaveAllBtn')?.addEventListener('click', async (e)
   const failed = results.find(r => !r.ok);
   if (failed) { errEl.textContent = failed.error; return; }
   toast('บันทึกการแก้ไขแล้ว');
+  // เลขบัตร/รหัส ICD ไม่กระทบปฏิทินหรือรายการที่แสดงในแผงวัน จึงไม่ต้องยิง getDayDetail ซ้ำ —
+  // แค่แก้ไขข้อมูลใน state ให้ตรงกัน เผื่อเปิดดูรายละเอียดนัดนี้อีกครั้ง
+  const appt = (state.currentDayDetail?.appointments || []).find(a => a.id === state.currentApptDetailId);
+  if (appt) {
+    appt.nationalId = val;
+    if (state.role === 'physio') {
+      appt.icd10 = gatherIcdSlots_('detailIcd10Slots').join(',');
+      appt.icd9 = gatherIcdSlots_('detailIcd9Slots').join(',');
+    }
+  }
   closeApptDetail();
-  await openDayPanel(state.currentDate);
 });
 function closeApptDetail() {
   apptDetailModal?.classList.add('hidden');
@@ -494,8 +522,14 @@ document.getElementById('apptDetailAttendBtn')?.addEventListener('click', async 
   btn.disabled = false;
   if (!res.ok) { toast(res.error); return; }
   toast(attended ? 'บันทึกว่ามาทำกายภาพแล้ว' : 'ยกเลิกการบันทึกแล้ว');
+  // ไม่กระทบปฏิทินเช่นเดียวกับปุ่มในรายการ — อัปเดต state ในเครื่องแล้ว render รายการใหม่ทันที
+  const appt = (state.currentDayDetail?.appointments || []).find(a => a.id === btn.dataset.id);
+  if (appt) {
+    appt.attendedAt = attended ? new Date().toISOString() : '';
+    appt.attendedBy = attended ? state.displayName : '';
+    renderApptList(state.currentDayDetail.appointments);
+  }
   closeApptDetail();
-  await openDayPanel(state.currentDate);
 });
 apptDetailModalBackdrop?.addEventListener('click', closeApptDetail);
 document.getElementById('apptDetailCancelBtn')?.addEventListener('click', async (e) => {
@@ -1103,43 +1137,6 @@ document.getElementById('closedDateForm')?.addEventListener('submit', async (e) 
   submitBtn.textContent = originalText;
   if (!res.ok) { toast(res.error); return; }
   document.getElementById('closedDateForm').reset();
-  loadSettings();
-  renderCalendar();
-});
-
-/* ---------------- ซิงก์วันหยุดราชการ ---------------- */
-
-(function setupHolidaySyncYearOptions_() {
-  const sel = document.getElementById('holidaySyncYear');
-  if (!sel) return;
-  const thisYear = new Date().getFullYear();
-  sel.innerHTML = '';
-  for (let y = thisYear - 1; y <= thisYear + 1; y++) {
-    const opt = document.createElement('option');
-    opt.value = y;
-    opt.textContent = (y + 543) + ' (พ.ศ.)';
-    if (y === thisYear) opt.selected = true;
-    sel.appendChild(opt);
-  }
-})();
-
-document.getElementById('syncHolidaysBtn')?.addEventListener('click', async (e) => {
-  const btn = e.currentTarget;
-  const msgEl = document.getElementById('holidaySyncMsg');
-  const year = document.getElementById('holidaySyncYear').value;
-  const originalText = btn.textContent;
-  btn.disabled = true;
-  btn.textContent = 'กำลังดึงข้อมูล...';
-  if (msgEl) msgEl.textContent = '';
-  const res = await api('syncHolidays', { year });
-  btn.disabled = false;
-  btn.textContent = originalText;
-  if (!res.ok) { if (msgEl) msgEl.textContent = res.error; else toast(res.error); return; }
-  const text = res.added > 0
-    ? `เพิ่มวันปิดใหม่ ${res.added} วัน (พบทั้งหมด ${res.totalFound} วัน)`
-    : `ไม่มีวันปิดใหม่ให้เพิ่ม (มีอยู่แล้วครบ ${res.totalFound} วัน)`;
-  if (msgEl) msgEl.textContent = text;
-  toast('ดึงวันหยุดราชการเสร็จแล้ว');
   loadSettings();
   renderCalendar();
 });
