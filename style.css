@@ -312,16 +312,11 @@ label {
 .day-cell.today .today-tag { color: #fff; }
 .today-tag { font-size: 10px; font-weight: 700; color: var(--teal-dark); }
 
-/* วันเต็ม: พื้นแดง ตัวอักษรขาว */
-.day-cell.full { background: var(--full); border-color: #7A2C19; color: #fff; }
-.day-cell.full:hover { border-color: #5E2112; }
-.day-cell.full .day-num { color: #fff !important; }
-.day-cell.full .clinic-line { background: rgba(255,255,255,0.85); color: var(--full) !important; } /* วันเต็มพื้นแดงอยู่แล้ว ป้ายคลินิกจึงสลับเป็นพื้นขาวแทน ไม่งั้น color-mix กับสีขาวจะจางจนมองไม่เห็น */
-.day-cell.full .badge { background: rgba(255,255,255,0.22); color: #fff; }
-.day-cell.full .badge.full-tag { background: #fff; color: var(--full); font-weight: 700; }
-.day-cell.full .today-tag { color: #fff; }
-.day-cell.today.full { border-color: #fff; box-shadow: 0 0 0 3px #2E7D32; }
-.day-cell.today.full .day-num { background: #fff; color: var(--full) !important; }
+/* วันเต็ม: เดิมพื้นแดงเต็มช่อง เปลี่ยนเป็นพื้นปกติ ให้พื้นแดงเฉพาะคำว่า "เต็ม" พอ จะได้ไม่จัดจ้านทั้งช่อง แต่ยังสังเกตเห็นง่ายจากป้ายสีแดงเด่นๆ + ขอบด้านซ้าย */
+.day-cell.full { border-left: 4px solid var(--full); }
+.day-cell.full:hover { border-color: var(--full); }
+.badge.full-tag { background: var(--full); color: #fff; font-weight: 700; }
+.day-cell.today.full { border-left: 4px solid var(--full); box-shadow: 0 0 0 3px #2E7D32; }
 
 .day-num { font-weight: 600; font-size: 14px; }
 /* ชื่อคลินิก: เดิมเป็นแค่ตัวหนังสือสีลอยๆ บนพื้นการ์ด อ่านยากถ้าสีที่ตั้งไว้สว่าง — ใส่พื้นหลังโทนอ่อนของสีคลินิกนั้นเองให้เป็น "ป้าย" ชัดเจน
