@@ -394,7 +394,7 @@ function renderBusyList(busy) {
     const li = document.createElement('li');
     // แสดงเป็น "เหตุผล เวลาเริ่ม ถึง เวลาสิ้นสุด" อ่านง่ายกว่ารูปแบบ "เวลา-เวลา เหตุผล" เดิม
     li.innerHTML = `<span>${b.type || 'ไม่ว่าง'} ${b.startTime} ถึง ${b.endTime}${b.note ? ' — ' + b.note : ''}${isFromRule ? ' <span class="badge avail-tag">กฎอัตโนมัติ</span>' : ''}</span>` +
-      (canEdit ? `<span style="display:flex;gap:6px;"><button data-edit-id="${b.id}">แก้ไข</button><button data-id="${b.id}">ลบ</button></span>` : '');
+      (canEdit ? `<span class="busy-item-actions"><button class="busy-edit-btn" data-edit-id="${b.id}">แก้ไข</button><button data-id="${b.id}">ลบ</button></span>` : '');
     list.appendChild(li);
   });
   list.querySelectorAll('button[data-edit-id]').forEach(btn => {
