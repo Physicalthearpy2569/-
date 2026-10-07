@@ -348,6 +348,7 @@ async function openDayPanel(dateStr) {
   renderClinicEditor(res.data.clinic);
   renderDayToggleActions(res.data);
   renderExtraSlotList(res.data.extraSlots);
+  renderBusyList(res.data.busy);
 
   dayPanel.classList.remove('hidden');
   dayPanelBackdrop.classList.remove('hidden');
@@ -361,9 +362,41 @@ function renderSlots(slots) {
     const btn = document.createElement('button');
     btn.className = 'slot-btn ' + (s.available ? 'available' : 'taken');
     btn.textContent = s.start;
-    btn.title = s.available ? 'ว่าง' : (s.busyType || (s.appointment ? `นัด: ${s.appointment.patientName}` : 'ไม่ว่าง'));
-    if (s.available) btn.addEventListener('click', () => openApptModal(s.start));
+    const reason = s.available ? 'ว่าง' : (s.busyType ? `ไม่ว่าง: ${s.busyType}` : (s.appointment ? `มีนัด: ${s.appointment.firstName} ${s.appointment.lastName}` : 'ไม่ว่าง'));
+    btn.title = reason;
+    if (s.available) {
+      btn.addEventListener('click', () => openApptModal(s.start));
+    } else {
+      // เดิมกดช่องที่ไม่ว่างแล้วไม่มีอะไรเกิดขึ้นเลย ผู้ใช้ไม่รู้ว่าทำไมถึงจองไม่ได้ — เปลี่ยนให้กดแล้วบอกเหตุผลทันที
+      btn.addEventListener('click', () => toast(`ช่วง ${s.start}-${s.end} ${reason}`));
+    }
     box.appendChild(btn);
+  });
+}
+
+/** แสดงรายการ "ช่วงไม่ว่าง" ของวันนี้ (ทั้งที่เพิ่มเองรายวัน และที่มาจากกฎอัตโนมัติ) ให้เห็นในแผงรายละเอียดวันเลย
+ *  ไม่ใช่แค่ป้ายบนปฏิทินเดือนเท่านั้น — เดิมข้อมูลนี้ถูกดึงมาอยู่แล้วแต่ไม่เคยถูกแสดงผลที่นี่ */
+function renderBusyList(busy) {
+  const section = document.getElementById('busySection');
+  const list = document.getElementById('busyList');
+  if (!section || !list) return;
+  if (!busy || !busy.length) { section.classList.add('hidden'); list.innerHTML = ''; return; }
+  section.classList.remove('hidden');
+  list.innerHTML = '';
+  busy.forEach(b => {
+    const isFromRule = String(b.id).indexOf('rule-') === 0; // มาจากกฎอัตโนมัติ ("ปิด/ไม่ว่างอัตโนมัติ" ในหน้าตั้งค่า) ลบจากตรงนี้ไม่ได้ ต้องไปลบที่หน้าตั้งค่า
+    const li = document.createElement('li');
+    li.innerHTML = `<span>${b.startTime}-${b.endTime} ${b.type || 'ไม่ว่าง'}${b.note ? ' — ' + b.note : ''}${isFromRule ? ' <span class="badge avail-tag">กฎอัตโนมัติ</span>' : ''}</span>` +
+      (isFromRule || state.role !== 'physio' ? '' : `<button data-id="${b.id}">ลบ</button>`);
+    list.appendChild(li);
+  });
+  list.querySelectorAll('button').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const res = await api('removeBusy', { id: btn.dataset.id });
+      if (!res.ok) { toast(res.error); return; }
+      toast('ลบช่วงไม่ว่างแล้ว');
+      await Promise.all([openDayPanel(state.currentDate), renderCalendar()]); // ส่งผลต่อช่วงเวลาว่าง/จำนวนในปฏิทิน จึงต้องโหลดใหม่ทั้งคู่
+    });
   });
 }
 
