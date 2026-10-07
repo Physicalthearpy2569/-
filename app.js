@@ -19,6 +19,45 @@ const state = {
   settingsLoaded: false
 };
 
+/* ---------------- สีคลินิก: กันตัวอักษรกลืนกับพื้นหลัง ----------------
+ * สีคลินิกเลือกเองได้จากหน้าตั้งค่า (input type=color) จะได้สีอะไรก็ได้ ถ้าดันเลือกสีอ่อน
+ * (เช่น เหลืองพาสเทล ชมพูอ่อน) แล้วเอาไปเป็นทั้งสีตัวอักษรและสีพื้นหลัง (หรือพื้นหลังที่เป็นเฉดอ่อนของสีเดียวกัน)
+ * จะกลืนกันจนอ่านไม่ออก ฟังก์ชันพวกนี้คำนวณ contrast ตามสูตร WCAG แล้วปรับสีให้อ่านออกเสมอ
+ */
+function hexToRgb_(hex) {
+  const h = hex.replace('#', '');
+  return [parseInt(h.substring(0, 2), 16), parseInt(h.substring(2, 4), 16), parseInt(h.substring(4, 6), 16)];
+}
+function relLum_([r, g, b]) {
+  const f = c => { c /= 255; return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); };
+  return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b);
+}
+function contrastRatio_(hex1, hex2) {
+  const l1 = relLum_(hexToRgb_(hex1));
+  const l2 = relLum_(hexToRgb_(hex2));
+  const [hi, lo] = l1 > l2 ? [l1, l2] : [l2, l1];
+  return (hi + 0.05) / (lo + 0.05);
+}
+/** ถ้าสีที่เลือกมาคอนทราสต์กับพื้นหลังไม่พอ ค่อยๆเข้มสีลงจนอ่านออก (ไม่เปลี่ยนสีถ้าอ่านออกอยู่แล้ว) */
+function darkenUntilReadable_(hex, bgHex, target) {
+  target = target || 4.5;
+  let [r, g, b] = hexToRgb_(hex);
+  let current = hex;
+  for (let i = 0; i < 12 && contrastRatio_(current, bgHex) < target; i++) {
+    r = Math.round(r * 0.85);
+    g = Math.round(g * 0.85);
+    b = Math.round(b * 0.85);
+    current = '#' + [r, g, b].map(v => v.toString(16).padStart(2, '0')).join('');
+  }
+  return current;
+}
+/** เลือกว่าตัวอักษรบนพื้นหลังสีนี้ควรเป็นขาวหรือเข้ม โดยดูว่าแบบไหนคอนทราสต์ดีกว่า */
+function readableTextOn_(bgHex) {
+  const whiteContrast = contrastRatio_('#FFFFFF', bgHex);
+  const inkContrast = contrastRatio_('#223029', bgHex);
+  return whiteContrast >= inkContrast ? '#FFFFFF' : '#223029';
+}
+
 /* ---------------- API helper (ใช้ JSONP เพื่อเลี่ยงปัญหา CORS ของ Apps Script) ---------------- */
 
 const JSONP_TIMEOUT_MS = 30000; // ถ้าเกิน 30 วิไม่มีการตอบกลับ ถือว่าเชื่อมต่อไม่สำเร็จ ไม่ปล่อยให้ค้างเงียบๆ ไม่มีที่สิ้นสุด
@@ -260,8 +299,9 @@ function buildDayCellEl_(day) {
   if (day.clinicColor) cell.style.setProperty('--clinic-color', day.clinicColor);
   const dayNum = Number(day.date.split('-')[2]);
 
+  const clinicTextColor = day.clinicColor ? darkenUntilReadable_(day.clinicColor, '#FFFFFF') : day.clinicColor;
   const clinicLine = day.clinicName
-    ? `<div class="clinic-line" style="color:${day.clinicColor}" title="${(day.clinicNote || '').replace(/"/g, '')}">${day.clinicName}</div>`
+    ? `<div class="clinic-line" style="color:${clinicTextColor}" title="${(day.clinicNote || '').replace(/"/g, '')}">${day.clinicName}</div>`
     : '';
 
   const badges = [];
@@ -672,7 +712,7 @@ function renderClinicDisplay(clinic) {
     box.innerHTML = '<span style="color:var(--ink-soft);font-size:13px;">ยังไม่กำหนดคลินิกวันนี้</span>';
     return;
   }
-  box.innerHTML = `<span class="badge clinic-tag" style="background:${clinic.color}">${clinic.name}</span>` +
+  box.innerHTML = `<span class="badge clinic-tag" style="background:${clinic.color};color:${readableTextOn_(clinic.color)}">${clinic.name}</span>` +
     (clinic.fromRule ? '<span style="color:var(--ink-soft);font-size:11px;margin-left:6px;">(ตามกฎอัตโนมัติ)</span>' : '') +
     (clinic.note ? `<div style="color:var(--ink-soft);font-size:12px;margin-top:6px;">${clinic.note}</div>` : '');
 }
