@@ -424,9 +424,9 @@ function openApptDetail(a) {
   state.currentApptDetailId = a.id;
 
   document.getElementById('detailNationalId').value = a.nationalId || '';
-  document.getElementById('detailNationalIdError').textContent = '';
-  const saveNidBtn = document.getElementById('detailSaveNationalIdBtn');
-  if (saveNidBtn) saveNidBtn.style.display = a.status === 'cancelled' ? 'none' : '';
+  document.getElementById('detailSaveError').textContent = '';
+  const saveAllBtn = document.getElementById('detailSaveAllBtn');
+  if (saveAllBtn) saveAllBtn.style.display = a.status === 'cancelled' ? 'none' : '';
 
   const cancelBtn = document.getElementById('apptDetailCancelBtn');
   cancelBtn.dataset.id = a.id;
@@ -446,44 +446,35 @@ function openApptDetail(a) {
   const icd9Sel = String(a.icd9 || '').split(',').map(s => s.trim()).filter(c => c && c !== auto9);
   renderIcdSlots_('detailIcd10Slots', state.icd10Codes, 2, icd10Sel);
   renderIcdSlots_('detailIcd9Slots', state.icd9Codes, 6, icd9Sel);
-  const saveIcdBtn = document.getElementById('detailSaveIcdBtn');
-  if (saveIcdBtn) saveIcdBtn.style.display = a.status === 'cancelled' ? 'none' : '';
 
   apptDetailModal?.classList.remove('hidden');
   apptDetailModalBackdrop?.classList.remove('hidden');
 }
 
-document.getElementById('detailSaveNationalIdBtn')?.addEventListener('click', async (e) => {
+document.getElementById('detailSaveAllBtn')?.addEventListener('click', async (e) => {
   const btn = e.currentTarget;
-  const val = document.getElementById('detailNationalId').value.trim();
-  const errEl = document.getElementById('detailNationalIdError');
+  const errEl = document.getElementById('detailSaveError');
   errEl.textContent = '';
   const originalText = btn.textContent;
   btn.disabled = true;
   btn.textContent = 'กำลังบันทึก...';
-  const res = await api('updateAppointmentInfo', { id: state.currentApptDetailId, nationalId: val });
-  btn.disabled = false;
-  btn.textContent = originalText;
-  if (!res.ok) { errEl.textContent = res.error; return; }
-  toast('บันทึกเลขบัตรประชาชนแล้ว');
-  closeApptDetail();
-  await openDayPanel(state.currentDate);
-});
 
-document.getElementById('detailSaveIcdBtn')?.addEventListener('click', async (e) => {
-  const btn = e.currentTarget;
-  const originalText = btn.textContent;
-  btn.disabled = true;
-  btn.textContent = 'กำลังบันทึก...';
-  const res = await api('updateAppointmentIcd', {
-    id: state.currentApptDetailId,
-    icd10: gatherIcdSlots_('detailIcd10Slots'),
-    icd9: gatherIcdSlots_('detailIcd9Slots')
-  });
+  const val = document.getElementById('detailNationalId').value.trim();
+  const tasks = [api('updateAppointmentInfo', { id: state.currentApptDetailId, nationalId: val })];
+  if (state.role === 'physio') {
+    tasks.push(api('updateAppointmentIcd', {
+      id: state.currentApptDetailId,
+      icd10: gatherIcdSlots_('detailIcd10Slots'),
+      icd9: gatherIcdSlots_('detailIcd9Slots')
+    }));
+  }
+  const results = await Promise.all(tasks);
   btn.disabled = false;
   btn.textContent = originalText;
-  if (!res.ok) { toast(res.error); return; }
-  toast('บันทึกรหัส ICD แล้ว');
+
+  const failed = results.find(r => !r.ok);
+  if (failed) { errEl.textContent = failed.error; return; }
+  toast('บันทึกการแก้ไขแล้ว');
   closeApptDetail();
   await openDayPanel(state.currentDate);
 });
@@ -616,9 +607,17 @@ function renderExtraSlotList(rows) {
   list.innerHTML = '';
   if (!rows || !rows.length) return; // ไม่มีรายการ ไม่ต้องโชว์อะไรเลย (ไม่ใช่ข้อมูลหลักของวัน)
   rows.forEach(s => {
+    // เช็คว่าช่วงเวลาพิเศษนี้ยังว่างอยู่ไหม (เทียบกับ slots ของวันที่แสดงอยู่) เพื่อให้กดเข้าไปทำนัดได้ทันที
+    const matchSlot = (state.currentDayDetail?.slots || []).find(sl => sl.start === s.start && sl.end === s.end);
+    const bookable = !!(matchSlot && matchSlot.available);
+
     const li = document.createElement('li');
-    li.innerHTML = `<span>${s.start}-${s.end}${s.note ? ' — ' + s.note : ''} <span class="badge special-tag">พิเศษ</span></span><button data-id="${s.id}">ลบ</button>`;
+    li.innerHTML = `<span class="extra-slot-label"${bookable ? ' style="cursor:pointer;text-decoration:underline;"' : ''}>${s.start}-${s.end}${s.note ? ' — ' + s.note : ''} <span class="badge special-tag">พิเศษ</span>${bookable ? '' : ' <span style="color:var(--ink-soft);">(มีนัด/ไม่ว่างแล้ว)</span>'}</span><button data-id="${s.id}">ลบ</button>`;
     list.appendChild(li);
+
+    if (bookable) {
+      li.querySelector('.extra-slot-label').addEventListener('click', () => openApptModal(s.start));
+    }
   });
   list.querySelectorAll('button').forEach(btn => {
     btn.addEventListener('click', async () => {
@@ -1095,6 +1094,43 @@ document.getElementById('closedDateForm')?.addEventListener('submit', async (e) 
   submitBtn.textContent = originalText;
   if (!res.ok) { toast(res.error); return; }
   document.getElementById('closedDateForm').reset();
+  loadSettings();
+  renderCalendar();
+});
+
+/* ---------------- ซิงก์วันหยุดราชการ ---------------- */
+
+(function setupHolidaySyncYearOptions_() {
+  const sel = document.getElementById('holidaySyncYear');
+  if (!sel) return;
+  const thisYear = new Date().getFullYear();
+  sel.innerHTML = '';
+  for (let y = thisYear - 1; y <= thisYear + 1; y++) {
+    const opt = document.createElement('option');
+    opt.value = y;
+    opt.textContent = (y + 543) + ' (พ.ศ.)';
+    if (y === thisYear) opt.selected = true;
+    sel.appendChild(opt);
+  }
+})();
+
+document.getElementById('syncHolidaysBtn')?.addEventListener('click', async (e) => {
+  const btn = e.currentTarget;
+  const msgEl = document.getElementById('holidaySyncMsg');
+  const year = document.getElementById('holidaySyncYear').value;
+  const originalText = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = 'กำลังดึงข้อมูล...';
+  if (msgEl) msgEl.textContent = '';
+  const res = await api('syncHolidays', { year });
+  btn.disabled = false;
+  btn.textContent = originalText;
+  if (!res.ok) { if (msgEl) msgEl.textContent = res.error; else toast(res.error); return; }
+  const text = res.added > 0
+    ? `เพิ่มวันปิดใหม่ ${res.added} วัน (พบทั้งหมด ${res.totalFound} วัน)`
+    : `ไม่มีวันปิดใหม่ให้เพิ่ม (มีอยู่แล้วครบ ${res.totalFound} วัน)`;
+  if (msgEl) msgEl.textContent = text;
+  toast('ดึงวันหยุดราชการเสร็จแล้ว');
   loadSettings();
   renderCalendar();
 });
