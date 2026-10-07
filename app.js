@@ -197,6 +197,9 @@ async function renderCalendar() {
   grid.classList.remove('loading');
   if (!res.ok) {
     delete _calendarPrefetchCache_[reqYear + '-' + reqMonth]; // เผื่อโหลดพลาด ครั้งหน้าจะได้ลองใหม่
+    // ต้องล้างข้อความ "กำลังโหลดปฏิทิน..." ออกด้วย ไม่งั้นจะค้างคาอยู่แบบนั้นตลอดไปแม้ error จะเกิดขึ้นแล้วจริงๆ
+    grid.innerHTML = `<div class="calendar-loading-msg">โหลดปฏิทินไม่สำเร็จ: ${res.error || 'ไม่ทราบสาเหตุ'} — <a href="#" id="calendarRetryLink">ลองใหม่</a></div>`;
+    document.getElementById('calendarRetryLink')?.addEventListener('click', (e) => { e.preventDefault(); renderCalendar(); });
     toast(res.error);
     return;
   }
