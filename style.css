@@ -16,7 +16,7 @@
   --taupe-tint: #EFEBE6;
   --success: #3C9A5F;
   --danger: #B3452F;
-  --full: #C62828;
+  --full: #A83F26;
   --radius: 14px;
   --font-display: 'Kanit', 'Noto Sans Thai', system-ui, sans-serif;
 }
@@ -296,7 +296,8 @@ label {
 
 .day-head { display: flex; align-items: center; gap: 6px; }
 .day-cell.today { border: 2px solid #2E7D32; background: #66BB6A; }
-.day-cell.today .day-num, .day-cell.today .clinic-line { color: #fff !important; }
+.day-cell.today .day-num { color: #fff !important; }
+.day-cell.today .clinic-line { background: rgba(255,255,255,0.85); color: #1F6B3A !important; } /* วันนี้พื้นเขียวสดอยู่แล้ว สลับป้ายคลินิกเป็นพื้นขาวเหมือนกับวันเต็ม กัน color-mix จางหาย */
 .day-cell.today .day-num {
   background: #fff;
   color: #2E7D32 !important;
@@ -312,9 +313,10 @@ label {
 .today-tag { font-size: 10px; font-weight: 700; color: var(--teal-dark); }
 
 /* วันเต็ม: พื้นแดง ตัวอักษรขาว */
-.day-cell.full { background: var(--full); border-color: #A31F1F; color: #fff; }
-.day-cell.full:hover { border-color: #7F1717; }
-.day-cell.full .day-num, .day-cell.full .clinic-line { color: #fff !important; }
+.day-cell.full { background: var(--full); border-color: #7A2C19; color: #fff; }
+.day-cell.full:hover { border-color: #5E2112; }
+.day-cell.full .day-num { color: #fff !important; }
+.day-cell.full .clinic-line { background: rgba(255,255,255,0.85); color: var(--full) !important; } /* วันเต็มพื้นแดงอยู่แล้ว ป้ายคลินิกจึงสลับเป็นพื้นขาวแทน ไม่งั้น color-mix กับสีขาวจะจางจนมองไม่เห็น */
 .day-cell.full .badge { background: rgba(255,255,255,0.22); color: #fff; }
 .day-cell.full .badge.full-tag { background: #fff; color: var(--full); font-weight: 700; }
 .day-cell.full .today-tag { color: #fff; }
@@ -322,10 +324,19 @@ label {
 .day-cell.today.full .day-num { background: #fff; color: var(--full) !important; }
 
 .day-num { font-weight: 600; font-size: 14px; }
+/* ชื่อคลินิก: เดิมเป็นแค่ตัวหนังสือสีลอยๆ บนพื้นการ์ด อ่านยากถ้าสีที่ตั้งไว้สว่าง — ใส่พื้นหลังโทนอ่อนของสีคลินิกนั้นเองให้เป็น "ป้าย" ชัดเจน
+   ใช้ color-mix() ผสมสีคลินิก (currentColor) กับสีขาวสด เพื่อได้พื้นหลังโทนเดียวกับสีที่ตั้งไว้แบบอัตโนมัติ ไม่ต้องคำนวณเฉดเองทีละสี */
 .clinic-line {
+  display: inline-block;
+  max-width: 100%;
+  width: fit-content;
+  box-sizing: border-box;
+  background: color-mix(in srgb, currentColor 16%, white);
+  padding: 2px 8px;
+  border-radius: 999px;
   font-weight: 700;
   font-size: 11px;
-  line-height: 1.2;
+  line-height: 1.4;
   margin-bottom: 4px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -339,6 +350,7 @@ label {
   border-radius: 999px;
   font-weight: 600;
 }
+/* ป้าย/แท็กทั้งหมด: โทนเอิร์ธธรรมชาติ (เขียวป่า/ดินเผา/เทาดิน/เหลืองดิน) ให้เป็นชุดเดียวกันทั้งแอป */
 .badge.opd { background: var(--teal-tint); color: var(--teal-dark); }
 .badge.community { background: var(--clay-tint); color: #8A4E20; }
 .badge.busy { background: var(--taupe-tint); color: #5B5347; }
@@ -560,7 +572,7 @@ label {
 }
 .appt-time { font-weight: 700; margin-inline-end: 8px; }
 .appt-list li.attended { background: #F3FAF5; border-color: #BFE3C9; }
-.badge.attended-tag { background: #DFF3E4; color: #1F6B3A; }
+.badge.attended-tag { background: var(--teal-tint); color: var(--teal-dark); } /* เดิมเป็นเขียวมินต์สด ปรับให้อยู่ในโทนเอิร์ธเดียวกับป้ายอื่นๆ */
 .appt-actions { display: flex; gap: 10px; align-items: center; margin-top: 8px; flex-wrap: wrap; }
 .appt-cancel { color: var(--danger); font-size: 12px; font-weight: 600; }
 .appt-attend {
