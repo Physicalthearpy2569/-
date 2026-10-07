@@ -365,7 +365,12 @@ function renderSlots(slots) {
     const reason = s.available ? 'ว่าง' : (s.busyType ? `ไม่ว่าง: ${s.busyType}` : (s.appointment ? `มีนัด: ${s.appointment.firstName} ${s.appointment.lastName}` : 'ไม่ว่าง'));
     btn.title = reason;
     if (s.available) {
-      btn.addEventListener('click', () => openApptModal(s.start));
+      // นักกายภาพกดช่องว่างแล้วเลือกได้เลยว่าจะจองนัด หรือจะปิดช่วงนี้ (ตั้งไม่ว่าง) ในขั้นตอนเดียว ไม่ต้องสลับไปกดปุ่มอื่นแยก
+      // ส่วนเจ้าหน้าที่ (staff) ไม่มีสิทธิ์ปิดช่วงเวลา กดแล้วไปหน้าจองนัดตรงทันทีเหมือนเดิม
+      btn.addEventListener('click', () => {
+        if (state.role === 'physio') openSlotActionModal_(s.start, s.end);
+        else openApptModal(s.start);
+      });
     } else {
       // เดิมกดช่องที่ไม่ว่างแล้วไม่มีอะไรเกิดขึ้นเลย ผู้ใช้ไม่รู้ว่าทำไมถึงจองไม่ได้ — เปลี่ยนให้กดแล้วบอกเหตุผลทันที
       btn.addEventListener('click', () => toast(`ช่วง ${s.start}-${s.end} ${reason}`));
@@ -384,13 +389,21 @@ function renderBusyList(busy) {
   section.classList.remove('hidden');
   list.innerHTML = '';
   busy.forEach(b => {
-    const isFromRule = String(b.id).indexOf('rule-') === 0; // มาจากกฎอัตโนมัติ ("ปิด/ไม่ว่างอัตโนมัติ" ในหน้าตั้งค่า) ลบจากตรงนี้ไม่ได้ ต้องไปลบที่หน้าตั้งค่า
+    const isFromRule = String(b.id).indexOf('rule-') === 0; // มาจากกฎอัตโนมัติ ("ปิด/ไม่ว่างอัตโนมัติ" ในหน้าตั้งค่า) แก้/ลบจากตรงนี้ไม่ได้ ต้องไปทำที่หน้าตั้งค่า
+    const canEdit = !isFromRule && state.role === 'physio';
     const li = document.createElement('li');
-    li.innerHTML = `<span>${b.startTime}-${b.endTime} ${b.type || 'ไม่ว่าง'}${b.note ? ' — ' + b.note : ''}${isFromRule ? ' <span class="badge avail-tag">กฎอัตโนมัติ</span>' : ''}</span>` +
-      (isFromRule || state.role !== 'physio' ? '' : `<button data-id="${b.id}">ลบ</button>`);
+    // แสดงเป็น "เหตุผล เวลาเริ่ม ถึง เวลาสิ้นสุด" อ่านง่ายกว่ารูปแบบ "เวลา-เวลา เหตุผล" เดิม
+    li.innerHTML = `<span>${b.type || 'ไม่ว่าง'} ${b.startTime} ถึง ${b.endTime}${b.note ? ' — ' + b.note : ''}${isFromRule ? ' <span class="badge avail-tag">กฎอัตโนมัติ</span>' : ''}</span>` +
+      (canEdit ? `<span style="display:flex;gap:6px;"><button data-edit-id="${b.id}">แก้ไข</button><button data-id="${b.id}">ลบ</button></span>` : '');
     list.appendChild(li);
   });
-  list.querySelectorAll('button').forEach(btn => {
+  list.querySelectorAll('button[data-edit-id]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const b = (busy || []).find(x => x.id === btn.dataset.editId);
+      if (b) openBusyModal_(b);
+    });
+  });
+  list.querySelectorAll('button[data-id]').forEach(btn => {
     btn.addEventListener('click', async () => {
       const res = await api('removeBusy', { id: btn.dataset.id });
       if (!res.ok) { toast(res.error); return; }
@@ -1013,18 +1026,60 @@ document.getElementById('apptForm')?.addEventListener('submit', async (e) => {
   await Promise.all([openDayPanel(date), renderCalendar()]); // เรียกพร้อมกันแทนเรียงลำดับ ลดเวลารอ
 });
 
+/* ---------------- โมดัลเลือกการดำเนินการช่วงเวลาที่ว่าง (จองนัด / ปิดช่วงนี้) ---------------- */
+// เดิมกดช่องเวลาที่ว่างแล้วเปิดโมดัลจองนัดตรงทันที ไม่มีทางปิดช่วงเวลานั้นได้จากตรงนี้เลย
+// ต้องไปกดปุ่ม "ตั้งช่วงไม่ว่าง" แยกต่างหากแล้วพิมพ์เวลาเองใหม่ จึงเพิ่มขั้นตอนเลือกตรงนี้ก่อน
+
+const slotActionModal = document.getElementById('slotActionModal');
+const slotActionModalBackdrop = document.getElementById('slotActionModalBackdrop');
+let slotActionPending_ = null; // {start, end} ของช่องที่กำลังเลือกอยู่
+
+function openSlotActionModal_(start, end) {
+  slotActionPending_ = { start, end };
+  document.getElementById('slotActionTimeLabel').textContent = `${start}-${end}`;
+  slotActionModal.classList.remove('hidden');
+  slotActionModalBackdrop.classList.remove('hidden');
+}
+function closeSlotActionModal_() {
+  slotActionModal.classList.add('hidden');
+  slotActionModalBackdrop.classList.add('hidden');
+  slotActionPending_ = null;
+}
+document.getElementById('slotActionCancelBtn')?.addEventListener('click', closeSlotActionModal_);
+slotActionModalBackdrop?.addEventListener('click', closeSlotActionModal_);
+document.getElementById('slotActionBookBtn')?.addEventListener('click', () => {
+  const p = slotActionPending_;
+  closeSlotActionModal_();
+  if (p) openApptModal(p.start);
+});
+document.getElementById('slotActionCloseBtn')?.addEventListener('click', () => {
+  const p = slotActionPending_;
+  closeSlotActionModal_();
+  if (p) openBusyModal_({ startTime: p.start, endTime: p.end });
+});
+
 /* ---------------- โมดัลตั้งช่วงไม่ว่าง (นักกายภาพ) ---------------- */
 
 const busyModal = document.getElementById('busyModal');
 const busyModalBackdrop = document.getElementById('busyModalBackdrop');
 
-document.getElementById('physioBusyBtn')?.addEventListener('click', () => {
+/** เปิดโมดัลตั้งช่วงไม่ว่าง ใช้ได้ทั้งเพิ่มใหม่ (prefill = ไม่มี id) และแก้ไขของเดิม (prefill มี id) */
+function openBusyModal_(prefill) {
+  prefill = prefill || {};
   document.getElementById('busyDate').value = state.currentDate;
   document.getElementById('busyForm').reset();
   document.getElementById('busyError').textContent = '';
+  document.getElementById('busyId').value = prefill.id || '';
+  document.getElementById('busyModalTitle').textContent = prefill.id ? 'แก้ไขช่วงไม่ว่าง' : 'ตั้งช่วงไม่ว่าง';
+  document.querySelector('#busyForm button[type="submit"]').textContent = prefill.id ? 'บันทึกการแก้ไข' : 'บันทึก';
+  if (prefill.type) document.getElementById('busyType').value = prefill.type;
+  if (prefill.startTime) document.getElementById('busyStart').value = prefill.startTime;
+  if (prefill.endTime) document.getElementById('busyEnd').value = prefill.endTime;
+  if (prefill.note) document.getElementById('busyNote').value = prefill.note;
   busyModal.classList.remove('hidden');
   busyModalBackdrop.classList.remove('hidden');
-});
+}
+document.getElementById('physioBusyBtn')?.addEventListener('click', () => openBusyModal_());
 function closeBusyModal() {
   busyModal.classList.add('hidden');
   busyModalBackdrop.classList.add('hidden');
@@ -1035,19 +1090,21 @@ busyModalBackdrop?.addEventListener('click', closeBusyModal);
 document.getElementById('busyForm')?.addEventListener('submit', async (e) => {
   e.preventDefault();
   const date = document.getElementById('busyDate').value;
+  const busyId = document.getElementById('busyId').value;
 
   const submitBtn = e.target.querySelector('button[type="submit"]');
   const originalText = submitBtn.textContent;
   submitBtn.disabled = true;
   submitBtn.textContent = 'กำลังบันทึก...';
 
-  const res = await api('addBusy', {
+  const payload = {
     date,
     startTime: document.getElementById('busyStart').value,
     endTime: document.getElementById('busyEnd').value,
     type: document.getElementById('busyType').value,
     note: document.getElementById('busyNote').value.trim()
-  });
+  };
+  const res = busyId ? await api('updateBusy', { ...payload, id: busyId }) : await api('addBusy', payload);
 
   submitBtn.disabled = false;
   submitBtn.textContent = originalText;
