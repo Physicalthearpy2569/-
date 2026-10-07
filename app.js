@@ -272,9 +272,9 @@ async function renderCalendar() {
     grid.appendChild(cell);
   });
 
-  // ดึงเดือนก่อนหน้า/ถัดไปดักไว้เงียบๆ เบื้องหลัง เพื่อให้กดเปลี่ยนเดือนครั้งถัดไปไวขึ้นทันที
-  // หน่วงไว้สักครู่ก่อน จะได้ไม่ไปแย่งคิวกับคำขอของเดือนปัจจุบันที่ผู้ใช้กำลังรออยู่
-  setTimeout(() => { if (reqId === _calendarReqId_) prefetchAdjacentMonths_(); }, 1500);
+  // หมายเหตุ: เดิมเคยดักโหลดเดือนก่อนหน้า/ถัดไปไว้เงียบๆ เบื้องหลังหลังจากนี้ 1.5 วิ เพื่อให้สลับเดือนครั้งถัดไปไวขึ้น
+  // แต่พบว่ามันไปแย่งคิวคำขอกับการกระทำอื่นๆ ที่ผู้ใช้กำลังรออยู่จริง (เช่น บันทึก/ลบ/ยกเลิก) ทำให้ทุกอย่างช้าลงรวมกัน
+  // จึงปิดไว้ก่อน — ตัดการแย่งคิวเบื้องหลังเพื่อให้คำสั่งที่ผู้ใช้รอจริงตอบสนองไวขึ้น
 }
 
 function prefetchAdjacentMonths_() {
@@ -968,6 +968,8 @@ async function loadSettings() {
   // เรียกทีละอย่างตามลำดับ (ไม่ยิงพร้อมกันทั้งหมดแบบ Promise.all) เพราะ Apps Script
   // รับคำขอพร้อมกันได้จำกัด ถ้ายิง 7 คำขอพร้อมกันตอนเปิดหน้าตั้งค่า (ซ้อนกับ getCalendar/getDashboard ที่อาจกำลังโหลดอยู่)
   // ส่วนใหญ่จะไปค้างคิวรอจนหมดเวลา 20 วิ แล้ว error ทั้งชุด — เรียงคิวทีละตัวช้ากว่าแต่เสถียรกว่ามาก
+  // ใช้ loadSettings() เต็มรูปแบบนี้เฉพาะตอน "เข้าหน้าตั้งค่าครั้งแรก" หรือกดปุ่ม "โหลดใหม่" เท่านั้น
+  // ส่วนการบันทึก/ลบแต่ละหัวข้อ ให้เรียก reload เฉพาะหัวข้อนั้น (ดูฟังก์ชัน reload*_ ด้านล่าง) เพื่อไม่ต้องยิงทั้ง 7 คำขอซ้ำทุกครั้ง
   const schedRes = await api('getSchedule');
   const closedRes = await api('getClosedDates');
   const clinicRes = await api('getClinicTypes');
@@ -980,15 +982,42 @@ async function loadSettings() {
   if (closedRes.ok) renderClosedList(closedRes.data); else toast('โหลดวันปิดไม่สำเร็จ: ' + closedRes.error);
   if (clinicRes.ok) { state.clinicTypes = clinicRes.data; renderClinicTypesList(clinicRes.data); renderRuleClinicSelect(clinicRes.data); } else toast('โหลดประเภทคลินิกไม่สำเร็จ: ' + clinicRes.error);
   if (ruleRes.ok) renderClinicRulesList(ruleRes.data); else toast('โหลดกฎคลินิกไม่สำเร็จ: ' + ruleRes.error);
-  if (icd10Res.ok) { state.icd10Codes = icd10Res.data; renderIcdCodeList_('icd10List', icd10Res.data, 'removeIcd10Code'); } else toast('โหลดรหัส ICD-10 ไม่สำเร็จ: ' + icd10Res.error);
-  if (icd9Res.ok) { state.icd9Codes = icd9Res.data; renderIcdCodeList_('icd9List', icd9Res.data, 'removeIcd9Code'); } else toast('โหลดรหัส ICD-9 ไม่สำเร็จ: ' + icd9Res.error);
+  if (icd10Res.ok) { state.icd10Codes = icd10Res.data; renderIcdCodeList_('icd10List', icd10Res.data, 'removeIcd10Code', reloadIcd10_); } else toast('โหลดรหัส ICD-10 ไม่สำเร็จ: ' + icd10Res.error);
+  if (icd9Res.ok) { state.icd9Codes = icd9Res.data; renderIcdCodeList_('icd9List', icd9Res.data, 'removeIcd9Code', reloadIcd9_); } else toast('โหลดรหัส ICD-9 ไม่สำเร็จ: ' + icd9Res.error);
   if (busyRuleRes.ok) renderBusyRulesList(busyRuleRes.data); else toast('โหลดกฎปิดอัตโนมัติไม่สำเร็จ: ' + busyRuleRes.error);
 
   // ให้โหลดใหม่อัตโนมัติได้อีกครั้งถ้ารอบนี้มีบางส่วนล้มเหลว (ไม่ล็อกว่า "โหลดแล้ว" ทั้งที่ข้อมูลไม่ครบ)
   state.settingsLoaded = schedRes.ok && closedRes.ok && clinicRes.ok && ruleRes.ok && icd10Res.ok && icd9Res.ok && busyRuleRes.ok;
 }
 
-function renderIcdCodeList_(listId, rows, removeAction) {
+// รีโหลดเฉพาะหัวข้อเดียว ใช้แทน loadSettings() เต็มรูปแบบหลังบันทึก/ลบในแต่ละหัวข้อ
+// (เดิมทุกปุ่มบันทึก/ลบในหน้าตั้งค่าเรียก loadSettings() ที่ยิง 7 คำขอรวด ทำให้แต่ละคลิกช้ามาก)
+async function reloadClosedDates_() {
+  const res = await api('getClosedDates');
+  if (res.ok) renderClosedList(res.data); else toast('โหลดวันปิดไม่สำเร็จ: ' + res.error);
+}
+async function reloadClinicTypes_() {
+  const res = await api('getClinicTypes');
+  if (res.ok) { state.clinicTypes = res.data; renderClinicTypesList(res.data); renderRuleClinicSelect(res.data); } else toast('โหลดประเภทคลินิกไม่สำเร็จ: ' + res.error);
+}
+async function reloadClinicRules_() {
+  const res = await api('getClinicRules');
+  if (res.ok) renderClinicRulesList(res.data); else toast('โหลดกฎคลินิกไม่สำเร็จ: ' + res.error);
+}
+async function reloadBusyRules_() {
+  const res = await api('getBusyRules');
+  if (res.ok) renderBusyRulesList(res.data); else toast('โหลดกฎปิดอัตโนมัติไม่สำเร็จ: ' + res.error);
+}
+async function reloadIcd10_() {
+  const res = await api('getIcd10Codes');
+  if (res.ok) { state.icd10Codes = res.data; renderIcdCodeList_('icd10List', res.data, 'removeIcd10Code'); } else toast('โหลดรหัส ICD-10 ไม่สำเร็จ: ' + res.error);
+}
+async function reloadIcd9_() {
+  const res = await api('getIcd9Codes');
+  if (res.ok) { state.icd9Codes = res.data; renderIcdCodeList_('icd9List', res.data, 'removeIcd9Code'); } else toast('โหลดรหัส ICD-9 ไม่สำเร็จ: ' + res.error);
+}
+
+function renderIcdCodeList_(listId, rows, removeAction, reloadFn) {
   const list = document.getElementById(listId);
   if (!list) return;
   list.innerHTML = '';
@@ -1003,7 +1032,7 @@ function renderIcdCodeList_(listId, rows, removeAction) {
     btn.addEventListener('click', async () => {
       const res = await api(removeAction, { id: btn.dataset.id });
       if (!res.ok) { toast(res.error); return; }
-      loadSettings();
+      reloadFn();
     });
   });
 }
@@ -1015,7 +1044,7 @@ document.getElementById('icd10Form')?.addEventListener('submit', async (e) => {
   const res = await api('addIcd10Code', { code, label });
   if (!res.ok) { toast(res.error); return; }
   document.getElementById('icd10Form').reset();
-  loadSettings();
+  reloadIcd10_();
 });
 
 document.getElementById('icd9Form')?.addEventListener('submit', async (e) => {
@@ -1025,7 +1054,7 @@ document.getElementById('icd9Form')?.addEventListener('submit', async (e) => {
   const res = await api('addIcd9Code', { code, label });
   if (!res.ok) { toast(res.error); return; }
   document.getElementById('icd9Form').reset();
-  loadSettings();
+  reloadIcd9_();
 });
 
 document.getElementById('refreshSettingsBtn')?.addEventListener('click', loadSettings);
@@ -1118,8 +1147,7 @@ function renderClosedList(rows) {
     btn.addEventListener('click', async () => {
       const res = await api('removeClosedDate', { date: btn.dataset.date });
       if (!res.ok) { toast(res.error); return; }
-      loadSettings();
-      renderCalendar();
+      await Promise.all([reloadClosedDates_(), renderCalendar()]); // เรียกพร้อมกัน ลดเวลารอ
     });
   });
 }
@@ -1137,8 +1165,7 @@ document.getElementById('closedDateForm')?.addEventListener('submit', async (e) 
   submitBtn.textContent = originalText;
   if (!res.ok) { toast(res.error); return; }
   document.getElementById('closedDateForm').reset();
-  loadSettings();
-  renderCalendar();
+  await Promise.all([reloadClosedDates_(), renderCalendar()]); // เรียกพร้อมกัน ลดเวลารอ
 });
 
 /* ---------------- ประเภทคลินิก (ตั้งค่า) ---------------- */
@@ -1157,8 +1184,8 @@ function renderClinicTypesList(rows) {
       if (!confirm('ลบประเภทคลินิกนี้? (วันที่เคยกำหนดคลินิกนี้ไว้จะถูกล้างไปด้วย)')) return;
       const res = await api('removeClinicType', { id: btn.dataset.id });
       if (!res.ok) { toast(res.error); return; }
-      loadSettings();
-      renderCalendar();
+      // การลบคลินิกจะลบกฎอัตโนมัติที่ผูกกับคลินิกนี้ทิ้งไปด้วย (ฝั่งเซิร์ฟเวอร์) จึงต้องโหลดกฎใหม่ด้วย
+      await Promise.all([reloadClinicTypes_(), reloadClinicRules_(), renderCalendar()]);
     });
   });
 }
@@ -1177,7 +1204,7 @@ document.getElementById('clinicTypeForm')?.addEventListener('submit', async (e) 
   if (!res.ok) { toast(res.error); return; }
   document.getElementById('clinicTypeForm').reset();
   document.getElementById('clinicTypeColor').value = '#2B6E63';
-  loadSettings();
+  reloadClinicTypes_();
 });
 
 /* ---------------- กฎคลินิกอัตโนมัติ (ตั้งค่า) ---------------- */
@@ -1207,8 +1234,7 @@ function renderClinicRulesList(rows) {
     btn.addEventListener('click', async () => {
       const res = await api('removeClinicRule', { id: btn.dataset.id });
       if (!res.ok) { toast(res.error); return; }
-      loadSettings();
-      renderCalendar();
+      await Promise.all([reloadClinicRules_(), renderCalendar()]);
     });
   });
 }
@@ -1234,8 +1260,7 @@ document.getElementById('clinicRuleForm')?.addEventListener('submit', async (e) 
   if (!res.ok) { toast(res.error); return; }
   document.getElementById('clinicRuleForm').reset();
   toast('เพิ่มกฎอัตโนมัติแล้ว');
-  loadSettings();
-  renderCalendar();
+  await Promise.all([reloadClinicRules_(), renderCalendar()]);
 });
 
 /* ---------------- ปิด/ไม่ว่างอัตโนมัติ (ตามวัน) ---------------- */
@@ -1284,8 +1309,7 @@ function renderBusyRulesList(rows) {
     btn.addEventListener('click', async () => {
       const res = await api('removeBusyRule', { id: btn.dataset.id });
       if (!res.ok) { toast(res.error); return; }
-      loadSettings();
-      renderCalendar();
+      await Promise.all([reloadBusyRules_(), renderCalendar()]);
     });
   });
 }
@@ -1326,8 +1350,7 @@ document.getElementById('busyRuleForm')?.addEventListener('submit', async (e) =>
   document.getElementById('busyRuleWeekdayFields').classList.remove('hidden');
   document.getElementById('busyRuleDomFields').classList.add('hidden');
   toast('เพิ่มกฎปิดอัตโนมัติแล้ว');
-  loadSettings();
-  renderCalendar();
+  await Promise.all([reloadBusyRules_(), renderCalendar()]);
 });
 
 /* ---------------- เริ่มระบบ ---------------- */
