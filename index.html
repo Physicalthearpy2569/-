@@ -6,7 +6,7 @@
 <title>ระบบนัดหมายผู้ป่วย รพ.สต.</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=20261007i" />
+<link rel="stylesheet" href="style.css?v=20261007j" />
 </head>
 <body>
 
@@ -322,12 +322,24 @@
     </form>
   </div>
 
+  <!-- ---------- โมดัลเลือกการดำเนินการช่วงเวลาที่ว่าง (จองนัด / ปิดช่วงนี้) ---------- -->
+  <div id="slotActionModalBackdrop" class="backdrop hidden"></div>
+  <div id="slotActionModal" class="modal hidden">
+    <h3>ช่วงเวลา <span id="slotActionTimeLabel"></span></h3>
+    <div class="modal-actions" style="flex-direction:column;gap:8px;">
+      <button type="button" class="primary" id="slotActionBookBtn" style="width:100%;">จองนัดช่วงนี้</button>
+      <button type="button" class="secondary" id="slotActionCloseBtn" style="width:100%;">ปิดช่วงนี้ (ไม่ว่าง)</button>
+      <button type="button" class="secondary" id="slotActionCancelBtn" style="width:100%;">ยกเลิก</button>
+    </div>
+  </div>
+
   <!-- ---------- โมดัลตั้งช่วงไม่ว่าง (นักกายภาพ) ---------- -->
   <div id="busyModalBackdrop" class="backdrop hidden"></div>
   <div id="busyModal" class="modal hidden">
-    <h3>ตั้งช่วงไม่ว่าง</h3>
+    <h3 id="busyModalTitle">ตั้งช่วงไม่ว่าง</h3>
     <form id="busyForm">
       <input type="hidden" id="busyDate" />
+      <input type="hidden" id="busyId" />
       <label>ประเภท
         <select id="busyType">
           <option value="ประชุม">ประชุม</option>
@@ -428,6 +440,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=20261007i"></script>
+  <script src="app.js?v=20261007j"></script>
 </body>
 </html>
