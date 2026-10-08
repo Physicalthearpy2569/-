@@ -1387,10 +1387,13 @@ function renderClinicTypesList(rows) {
   if (!rows.length) { list.innerHTML = '<li style="background:none;color:var(--ink-soft);">ยังไม่มีประเภทคลินิก</li>'; return; }
   rows.forEach(r => {
     const li = document.createElement('li');
-    li.innerHTML = `<span><span class="color-swatch" style="background:${r.color}"></span>${r.name}</span><button data-id="${r.id}">ลบ</button>`;
+    li.innerHTML = `<span><span class="color-swatch" style="background:${r.color}"></span>${r.name}</span><span class="busy-item-actions"><button class="busy-edit-btn" data-edit-id="${r.id}">แก้ไข</button><button data-id="${r.id}">ลบ</button></span>`;
     list.appendChild(li);
   });
-  list.querySelectorAll('button').forEach(btn => {
+  list.querySelectorAll('button[data-edit-id]').forEach(btn => {
+    btn.addEventListener('click', () => startEditClinicType_(btn.dataset.editId));
+  });
+  list.querySelectorAll('button[data-id]').forEach(btn => {
     btn.addEventListener('click', async () => {
       if (!confirm('ลบประเภทคลินิกนี้? (วันที่เคยกำหนดคลินิกนี้ไว้จะถูกล้างไปด้วย)')) return;
       const res = await api('removeClinicType', { id: btn.dataset.id });
@@ -1401,6 +1404,25 @@ function renderClinicTypesList(rows) {
   });
 }
 
+function resetClinicTypeForm_() {
+  document.getElementById('clinicTypeForm').reset();
+  document.getElementById('clinicTypeColor').value = '#2B6E63';
+  document.getElementById('clinicTypeEditId').value = '';
+  document.querySelector('#clinicTypeForm button[type="submit"]').textContent = 'เพิ่มคลินิก';
+  document.getElementById('clinicTypeCancelEdit').classList.add('hidden');
+}
+function startEditClinicType_(id) {
+  const c = state.clinicTypes.find(x => x.id === id);
+  if (!c) return;
+  document.getElementById('clinicTypeName').value = c.name;
+  document.getElementById('clinicTypeColor').value = c.color || '#2B6E63';
+  document.getElementById('clinicTypeEditId').value = c.id;
+  document.querySelector('#clinicTypeForm button[type="submit"]').textContent = 'บันทึกการแก้ไข';
+  document.getElementById('clinicTypeCancelEdit').classList.remove('hidden');
+  document.getElementById('clinicTypeName').focus();
+}
+document.getElementById('clinicTypeCancelEdit')?.addEventListener('click', resetClinicTypeForm_);
+
 document.getElementById('clinicTypeForm')?.addEventListener('submit', async (e) => {
   e.preventDefault();
   const name = document.getElementById('clinicTypeName').value.trim();
@@ -1409,13 +1431,14 @@ document.getElementById('clinicTypeForm')?.addEventListener('submit', async (e) 
   const originalText = submitBtn.textContent;
   submitBtn.disabled = true;
   submitBtn.textContent = 'กำลังบันทึก...';
-  const res = await api('addClinicType', { name, color });
+  const editId = document.getElementById('clinicTypeEditId').value;
+  const res = editId ? await api('updateClinicType', { id: editId, name, color }) : await api('addClinicType', { name, color });
   submitBtn.disabled = false;
   submitBtn.textContent = originalText;
   if (!res.ok) { toast(res.error); return; }
-  document.getElementById('clinicTypeForm').reset();
-  document.getElementById('clinicTypeColor').value = '#2B6E63';
-  reloadClinicTypes_();
+  resetClinicTypeForm_();
+  if (editId) toast('บันทึกการแก้ไขแล้ว');
+  await reloadClinicTypes_(); await Promise.all([reloadClinicRules_(), renderCalendar()]); // ชื่อ/สีเปลี่ยน ปฏิทินและรายการกฎต้องรีเฟรชตาม
 });
 
 /* ---------------- กฎคลินิกอัตโนมัติ (ตั้งค่า) ---------------- */
@@ -1438,10 +1461,13 @@ function renderClinicRulesList(rows) {
     const weekdayLabel = RULE_WEEKDAY_LABELS[String(r.weekday)] || r.weekday;
     const nthLabel = RULE_NTH_LABELS[String(r.nth)] || r.nth;
     const li = document.createElement('li');
-    li.innerHTML = `<span>${clinicName} — ${nthLabel === 'ทุกสัปดาห์' ? 'ทุกวัน' + weekdayLabel : `วัน${weekdayLabel} (${nthLabel})`}${r.note ? ' — ' + r.note : ''}</span><button data-id="${r.id}">ลบ</button>`;
+    li.innerHTML = `<span>${clinicName} — ${nthLabel === 'ทุกสัปดาห์' ? 'ทุกวัน' + weekdayLabel : `วัน${weekdayLabel} (${nthLabel})`}${r.note ? ' — ' + r.note : ''}</span><span class="busy-item-actions"><button class="busy-edit-btn" data-edit-id="${r.id}">แก้ไข</button><button data-id="${r.id}">ลบ</button></span>`;
     list.appendChild(li);
   });
-  list.querySelectorAll('button').forEach(btn => {
+  list.querySelectorAll('button[data-edit-id]').forEach(btn => {
+    btn.addEventListener('click', () => startEditClinicRule_(btn.dataset.editId, rows));
+  });
+  list.querySelectorAll('button[data-id]').forEach(btn => {
     btn.addEventListener('click', async () => {
       const res = await api('removeClinicRule', { id: btn.dataset.id });
       if (!res.ok) { toast(res.error); return; }
@@ -1449,6 +1475,26 @@ function renderClinicRulesList(rows) {
     });
   });
 }
+
+function resetClinicRuleForm_() {
+  document.getElementById('clinicRuleForm').reset();
+  document.getElementById('ruleEditId').value = '';
+  document.querySelector('#clinicRuleForm button[type="submit"]').textContent = 'เพิ่มกฎ';
+  document.getElementById('ruleCancelEdit').classList.add('hidden');
+}
+function startEditClinicRule_(id, rows) {
+  const r = rows.find(x => x.id === id);
+  if (!r) return;
+  document.getElementById('ruleClinicSelect').value = r.clinicTypeId;
+  document.getElementById('ruleWeekday').value = String(r.weekday);
+  document.getElementById('ruleNth').value = String(r.nth);
+  document.getElementById('ruleNote').value = r.note || '';
+  document.getElementById('ruleEditId').value = r.id;
+  document.querySelector('#clinicRuleForm button[type="submit"]').textContent = 'บันทึกการแก้ไข';
+  document.getElementById('ruleCancelEdit').classList.remove('hidden');
+  document.getElementById('clinicRuleForm').scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+document.getElementById('ruleCancelEdit')?.addEventListener('click', resetClinicRuleForm_);
 
 document.getElementById('clinicRuleForm')?.addEventListener('submit', async (e) => {
   e.preventDefault();
@@ -1463,14 +1509,15 @@ document.getElementById('clinicRuleForm')?.addEventListener('submit', async (e) 
   submitBtn.disabled = true;
   submitBtn.textContent = 'กำลังบันทึก...';
 
-  const res = await api('addClinicRule', { clinicTypeId, weekday, nth, note });
+  const editId = document.getElementById('ruleEditId').value;
+  const res = editId ? await api('updateClinicRule', { id: editId, clinicTypeId, weekday, nth, note }) : await api('addClinicRule', { clinicTypeId, weekday, nth, note });
 
   submitBtn.disabled = false;
   submitBtn.textContent = originalText;
 
   if (!res.ok) { toast(res.error); return; }
-  document.getElementById('clinicRuleForm').reset();
-  toast('เพิ่มกฎอัตโนมัติแล้ว');
+  resetClinicRuleForm_();
+  toast(editId ? 'บันทึกการแก้ไขแล้ว' : 'เพิ่มกฎอัตโนมัติแล้ว');
   await Promise.all([reloadClinicRules_(), renderCalendar()]);
 });
 
