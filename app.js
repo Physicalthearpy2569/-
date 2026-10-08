@@ -38,18 +38,35 @@ function contrastRatio_(hex1, hex2) {
   const [hi, lo] = l1 > l2 ? [l1, l2] : [l2, l1];
   return (hi + 0.05) / (lo + 0.05);
 }
-/** ถ้าสีที่เลือกมาคอนทราสต์กับพื้นหลังไม่พอ ค่อยๆเข้มสีลงจนอ่านออก (ไม่เปลี่ยนสีถ้าอ่านออกอยู่แล้ว) */
-function darkenUntilReadable_(hex, bgHex, target) {
-  target = target || 4.5;
-  let [r, g, b] = hexToRgb_(hex);
-  let current = hex;
-  for (let i = 0; i < 12 && contrastRatio_(current, bgHex) < target; i++) {
-    r = Math.round(r * 0.85);
-    g = Math.round(g * 0.85);
-    b = Math.round(b * 0.85);
-    current = '#' + [r, g, b].map(v => v.toString(16).padStart(2, '0')).join('');
+/**
+ * ปรับสีคลินิกที่ตั้งไว้ (อาจเป็นสีสด เช่น น้ำเงินจัด ชมพูจัด เหลืองสะท้อนแสง) ให้เป็นโทนเอิร์ธ:
+ * คง "เฉด" (hue) เดิมไว้เพื่อให้แต่ละคลินิกยังแยกกันออก แต่ลดความสดลงและทำให้เข้มลงนิดหน่อย
+ * ออกมาเป็นสีหม่นๆ แบบดินเผา/มะกอก/น้ำเงินเทา/ม่วงโกโก้ ใช้พื้นหลังแถบชื่อคลินิก ตัวอักษรขาวอ่านชัดเสมอ
+ */
+function earthify_(hex) {
+  const [r0, g0, b0] = hexToRgb_(hex).map(v => v / 255);
+  const max = Math.max(r0, g0, b0), min = Math.min(r0, g0, b0);
+  const d = max - min;
+  let h = 0;
+  if (d !== 0) {
+    if (max === r0) h = ((g0 - b0) / d) % 6;
+    else if (max === g0) h = (b0 - r0) / d + 2;
+    else h = (r0 - g0) / d + 4;
+    h = (h * 60 + 360) % 360;
   }
-  return current;
+  const s = 0.38;   // ความสดคงที่ค่อนข้างต่ำ = สีหม่นแบบธรรมชาติ
+  const l = 0.34;   // เข้มพอให้ตัวอักษรขาวอ่านชัด
+  const c = (1 - Math.abs(2 * l - 1)) * s;
+  const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
+  const m = l - c / 2;
+  let rgb;
+  if (h < 60) rgb = [c, x, 0];
+  else if (h < 120) rgb = [x, c, 0];
+  else if (h < 180) rgb = [0, c, x];
+  else if (h < 240) rgb = [0, x, c];
+  else if (h < 300) rgb = [x, 0, c];
+  else rgb = [c, 0, x];
+  return '#' + rgb.map(v => Math.round((v + m) * 255).toString(16).padStart(2, '0')).join('');
 }
 /** เลือกว่าตัวอักษรบนพื้นหลังสีนี้ควรเป็นขาวหรือเข้ม โดยดูว่าแบบไหนคอนทราสต์ดีกว่า */
 function readableTextOn_(bgHex) {
@@ -296,12 +313,13 @@ function buildDayCellEl_(day) {
   cell.className = 'day-cell' + (day.isClosed ? ' closed' : '') + (day.clinicColor ? ' has-clinic' : '') +
     (isToday ? ' today' : '') + (isFull ? ' full' : '');
   cell.dataset.date = day.date;
-  if (day.clinicColor) cell.style.setProperty('--clinic-color', day.clinicColor);
+  const clinicBg = day.clinicColor ? earthify_(day.clinicColor) : '';
+  if (clinicBg) cell.style.setProperty('--clinic-color', clinicBg);
   const dayNum = Number(day.date.split('-')[2]);
 
-  const clinicTextColor = day.clinicColor ? readableTextOn_(day.clinicColor) : '';
+  const clinicTextColor = clinicBg ? readableTextOn_(clinicBg) : '';
   const clinicLine = day.clinicName
-    ? `<div class="clinic-line" style="background:${day.clinicColor};color:${clinicTextColor}" title="${(day.clinicNote || '').replace(/"/g, '')}">${day.clinicName}</div>`
+    ? `<div class="clinic-line" style="background:${clinicBg};color:${clinicTextColor}" title="${(day.clinicNote || '').replace(/"/g, '')}">${day.clinicName}</div>`
     : '';
 
   const badges = [];
@@ -712,7 +730,8 @@ function renderClinicDisplay(clinic) {
     box.innerHTML = '<span style="color:var(--ink-soft);font-size:13px;">ยังไม่กำหนดคลินิกวันนี้</span>';
     return;
   }
-  box.innerHTML = `<span class="badge clinic-tag" style="background:${clinic.color};color:${readableTextOn_(clinic.color)}">${clinic.name}</span>` +
+  const tagBg = earthify_(clinic.color);
+  box.innerHTML = `<span class="badge clinic-tag" style="background:${tagBg};color:${readableTextOn_(tagBg)}">${clinic.name}</span>` +
     (clinic.fromRule ? '<span style="color:var(--ink-soft);font-size:11px;margin-left:6px;">(ตามกฎอัตโนมัติ)</span>' : '') +
     (clinic.note ? `<div style="color:var(--ink-soft);font-size:12px;margin-top:6px;">${clinic.note}</div>` : '');
 }
