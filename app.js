@@ -299,9 +299,9 @@ function buildDayCellEl_(day) {
   if (day.clinicColor) cell.style.setProperty('--clinic-color', day.clinicColor);
   const dayNum = Number(day.date.split('-')[2]);
 
-  const clinicTextColor = day.clinicColor ? darkenUntilReadable_(day.clinicColor, '#FFFFFF') : day.clinicColor;
+  const clinicTextColor = day.clinicColor ? readableTextOn_(day.clinicColor) : '';
   const clinicLine = day.clinicName
-    ? `<div class="clinic-line" style="color:${clinicTextColor}" title="${(day.clinicNote || '').replace(/"/g, '')}">${day.clinicName}</div>`
+    ? `<div class="clinic-line" style="background:${day.clinicColor};color:${clinicTextColor}" title="${(day.clinicNote || '').replace(/"/g, '')}">${day.clinicName}</div>`
     : '';
 
   const badges = [];
