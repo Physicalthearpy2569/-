@@ -6,7 +6,7 @@
 <title>ระบบนัดหมายผู้ป่วย รพ.สต.</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;500;600;700&family=Noto+Serif+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=20261008a" />
+<link rel="stylesheet" href="style.css?v=20261008b" />
 </head>
 <body>
 
@@ -124,7 +124,9 @@
           <form id="clinicTypeForm" class="inline-form">
             <input type="text" id="clinicTypeName" placeholder="ชื่อคลินิก" required />
             <input type="color" id="clinicTypeColor" value="#2B6E63" title="เลือกสี" />
+            <input type="hidden" id="clinicTypeEditId" />
             <button type="submit">เพิ่มคลินิก</button>
+            <button type="button" id="clinicTypeCancelEdit" class="secondary hidden">ยกเลิก</button>
           </form>
           <ul id="clinicTypeList" class="tag-list"></ul>
         </div>
@@ -152,7 +154,9 @@
               <option value="last">สัปดาห์สุดท้ายของเดือน</option>
             </select>
             <input type="text" id="ruleNote" placeholder="note (ไม่บังคับ)" />
+            <input type="hidden" id="ruleEditId" />
             <button type="submit">เพิ่มกฎ</button>
+            <button type="button" id="ruleCancelEdit" class="secondary hidden">ยกเลิก</button>
           </form>
           <ul id="clinicRuleList" class="tag-list"></ul>
         </div>
@@ -440,6 +444,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=20261008a"></script>
+  <script src="app.js?v=20261008b"></script>
 </body>
 </html>
