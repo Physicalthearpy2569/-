@@ -349,7 +349,6 @@ label {
 .badge.avail-tag { background: var(--teal-tint); color: var(--teal-dark); }
 .badge.clinic-tag { color: #fff; font-weight: 600; }
 
-.day-cell.has-clinic { border-top: 3px solid var(--clinic-color, transparent); }
 
 .calendar-grid.loading { opacity: 0.5; pointer-events: none; }
 .calendar-loading-msg { grid-column: 1 / -1; text-align: center; padding: 60px 0; color: var(--ink-soft); font-size: 16px; }
