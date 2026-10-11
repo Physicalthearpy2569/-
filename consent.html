@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="robots" content="noindex" />
+<title>ใบยินยอมรับบริการกายภาพบำบัด</title>
+<style>
+  /* ใบยินยอม 1 หน้า A4 — เปิดจากปุ่ม "พิมพ์ใบยินยอม" ในเวชระเบียน ชื่อ/PTN/วันที่ถูกเติมจากลิงก์ (ไม่ส่งไปที่ใด) */
+  :root { --ink: #1f2a25; --soft: #56645d; --line: #b9c2bc; --accent: #2F6E52; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: #F1ECE0; color: var(--ink); font-family: 'Sarabun', 'Noto Sans Thai', 'Leelawadee UI', Tahoma, sans-serif; font-size: 15px; line-height: 1.55; }
+  .bar { max-width: 210mm; margin: 0 auto; padding: 14px 16px 0; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+  .bar button { font: inherit; font-weight: 700; padding: 10px 18px; border-radius: 8px; border: 0; background: var(--accent); color: #fff; cursor: pointer; }
+  .note { flex: 1 1 320px; background: #F7EDD3; border: 1px solid #C9971F; color: #6B4F08; border-radius: 8px; padding: 9px 12px; font-size: 14px; }
+  .page { max-width: 210mm; margin: 14px auto 30px; background: #fff; padding: 16mm 16mm 14mm; box-shadow: 0 6px 24px rgba(0,0,0,.12); }
+  h1 { font-size: 19px; text-align: center; margin: 0 0 2px; }
+  .org { text-align: center; font-size: 15px; margin: 0 0 12px; }
+  h2 { font-size: 15.5px; margin: 12px 0 3px; }
+  p, li { margin: 0 0 3px; }
+  ol, ul { margin: 0 0 4px; padding-left: 22px; }
+  .who { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 20px; border: 1px solid var(--line); border-radius: 6px; padding: 8px 12px; margin-bottom: 8px; }
+  .fill { display: inline-block; min-width: 150px; border-bottom: 1px dotted var(--ink); padding: 0 4px; min-height: 1.3em; vertical-align: bottom; }
+  .fill.short { min-width: 70px; }
+  .choices { list-style: none; padding-left: 0; margin-top: 6px; }
+  .choices li { display: flex; gap: 8px; align-items: flex-start; margin-bottom: 5px; }
+  .box { flex: 0 0 15px; width: 15px; height: 15px; border: 1.4px solid var(--ink); margin-top: 4px; }
+  .sign { display: grid; grid-template-columns: 1fr 1fr; gap: 26px 28px; margin-top: 22px; }
+  .sign div { text-align: center; }
+  .sign .line { border-bottom: 1px dotted var(--ink); height: 26px; margin-bottom: 3px; }
+  .small { font-size: 13px; color: var(--soft); }
+  [contenteditable] { outline: none; }
+  [contenteditable]:hover, [contenteditable]:focus { background: #EEF5F0; }
+  @media (max-width: 640px) { .page { padding: 18px 16px; } .who, .sign { grid-template-columns: 1fr; } }
+  @media print {
+    html, body { background: #fff; font-size: 13.5px; }
+    .bar { display: none; }
+    .page { box-shadow: none; margin: 0; padding: 0; max-width: none; }
+    [contenteditable] { background: none !important; }
+    @page { size: A4; margin: 14mm 15mm; }
+  }
+</style>
+</head>
+<body>
+  <div class="bar">
+    <button type="button" onclick="window.print()">พิมพ์ใบยินยอม</button>
+    <div class="note"><b>ร่างตัวอย่าง:</b> ให้หน่วยงานตรวจและปรับข้อความก่อนใช้จริง — คลิกที่ข้อความใดก็ได้เพื่อแก้ไขก่อนพิมพ์ (การแก้ไขมีผลเฉพาะการพิมพ์ครั้งนี้) ข้อความในกรอบนี้จะไม่ถูกพิมพ์</div>
+  </div>
+
+  <main class="page" contenteditable="true" spellcheck="false">
+    <h1>หนังสือแสดงความยินยอมรับบริการกายภาพบำบัด<br>และการเก็บรวบรวม ใช้ ข้อมูลสุขภาพ</h1>
+    <p class="org">หน่วยกายภาพบำบัด โรงพยาบาลส่งเสริมสุขภาพตำบลบ้านแหลมโพธิ์</p>
+
+    <div class="who">
+      <div>ชื่อ-สกุลผู้รับบริการ <span class="fill" id="fName"></span></div>
+      <div>เลขประจำตัวกายภาพบำบัด (PTN) <span class="fill short" id="fPtn"></span></div>
+      <div>วันที่ <span class="fill short" id="fDate"></span></div>
+      <div>อายุ <span class="fill short"></span> ปี</div>
+    </div>
+
+    <h2>1. ข้อมูลที่หน่วยงานเก็บรวบรวม</h2>
+    <p>ชื่อ-สกุล เลขประจำตัวประชาชน เพศ วันเกิด ที่อยู่ เบอร์โทรศัพท์ ประวัติการเจ็บป่วยและอุบัติเหตุ ผลการตรวจร่างกาย ผลการทดสอบสมรรถภาพ การวินิจฉัย แผนและผลการรักษาทางกายภาพบำบัด และการนัดหมาย</p>
+
+    <h2>2. วัตถุประสงค์</h2>
+    <ul>
+      <li>เพื่อตรวจประเมิน วางแผน ให้การรักษาทางกายภาพบำบัด และติดตามผลการรักษา</li>
+      <li>เพื่อนัดหมายและติดต่อผู้รับบริการเกี่ยวกับการรักษา</li>
+      <li>เพื่อจัดทำสถิติและรายงานของหน่วยงาน ในรูปแบบที่ไม่สามารถระบุตัวบุคคลได้</li>
+    </ul>
+
+    <h2>3. การเก็บรักษาและผู้ที่เข้าถึงข้อมูล</h2>
+    <p>ข้อมูลถูกบันทึกเป็นเวชระเบียนอิเล็กทรอนิกส์ของหน่วยงานบนบริการคลาวด์ ซึ่งเครื่องแม่ข่ายอาจตั้งอยู่นอกประเทศไทย เข้าถึงได้เฉพาะเจ้าหน้าที่ที่เกี่ยวข้องกับการรักษาโดยใช้ชื่อผู้ใช้และรหัสผ่าน และมีการบันทึกการเข้าถึงทุกครั้ง หน่วยงานเก็บรักษาข้อมูลเป็นระยะเวลา <span class="fill short"></span> ปีนับจากวันที่รับบริการครั้งสุดท้าย หรือตามที่กฎหมายและระเบียบของทางราชการกำหนด</p>
+
+    <h2>4. การเปิดเผยข้อมูล</h2>
+    <p>หน่วยงานจะไม่เปิดเผยข้อมูลสุขภาพของท่านแก่บุคคลอื่น เว้นแต่ได้รับความยินยอมจากท่าน เป็นการส่งต่อเพื่อการรักษาพยาบาล หรือเป็นกรณีที่กฎหมายกำหนดให้ต้องเปิดเผย</p>
+
+    <h2>5. สิทธิของท่าน</h2>
+    <p>ท่านมีสิทธิขอดูและขอสำเนาข้อมูลของท่าน ขอแก้ไขข้อมูลให้ถูกต้อง คัดค้านหรือขอให้ระงับการใช้ข้อมูล และถอนความยินยอมได้ตลอดเวลา โดยการถอนความยินยอมไม่กระทบต่อการรักษาและการใช้ข้อมูลที่ได้ทำไปแล้วโดยชอบ และข้อมูลที่กฎหมายกำหนดให้ต้องเก็บรักษาไว้ ติดต่อใช้สิทธิได้ที่ <span class="fill"></span> โทร <span class="fill short"></span></p>
+
+    <h2>6. การแสดงความยินยอม</h2>
+    <p>ข้าพเจ้าได้รับคำอธิบายและเข้าใจข้อความข้างต้นแล้ว จึงขอแสดงเจตนาดังนี้ (ทำเครื่องหมาย ✓ ในช่อง)</p>
+    <ul class="choices">
+      <li><span class="box"></span><span>ยินยอมรับการตรวจประเมินและการรักษาทางกายภาพบำบัด โดยได้รับคำอธิบายเกี่ยวกับวิธีการ ประโยชน์ และความเสี่ยงที่อาจเกิดขึ้นแล้ว</span></li>
+      <li><span class="box"></span><span>ยินยอมให้หน่วยงานเก็บรวบรวมและใช้ข้อมูลส่วนบุคคลและข้อมูลสุขภาพของข้าพเจ้าตามวัตถุประสงค์ข้างต้น</span></li>
+      <li><span class="box"></span><span>(ทางเลือก) ยินยอมให้ถ่ายภาพเพื่อประเมินท่าทางและติดตามผลการรักษา โดยใช้ภายในหน่วยงานเท่านั้น</span></li>
+    </ul>
+
+    <div class="sign">
+      <div><div class="line"></div>ลงชื่อผู้รับบริการ / ผู้แทนโดยชอบธรรม<br><span class="small">( ............................................................ )</span><br><span class="small">กรณีผู้แทน เกี่ยวข้องเป็น ..............................</span></div>
+      <div><div class="line"></div>ลงชื่อนักกายภาพบำบัดผู้ให้ข้อมูล<br><span class="small">( ............................................................ )</span><br><span class="small">วันที่ ..............................</span></div>
+      <div><div class="line"></div>ลงชื่อพยาน (ถ้ามี)<br><span class="small">( ............................................................ )</span></div>
+      <div class="small" style="text-align:left;align-self:end;">กรณีผู้รับบริการไม่สามารถลงชื่อได้ ให้พิมพ์ลายนิ้วมือและมีพยานลงชื่อรับรอง</div>
+    </div>
+  </main>
+
+<script>
+  // เติมชื่อ / PTN / วันที่จากลิงก์ (ส่วนหลังเครื่องหมาย # อยู่ในเบราว์เซอร์เท่านั้น ไม่ถูกส่งไปยังเซิร์ฟเวอร์)
+  (function () {
+    var q = {};
+    location.hash.replace(/^#/, '').split('&').forEach(function (kv) {
+      var i = kv.indexOf('=');
+      if (i > 0) { try { q[kv.slice(0, i)] = decodeURIComponent(kv.slice(i + 1)); } catch (e) { /* ข้ามค่าที่ถอดรหัสไม่ได้ */ } }
+    });
+    var months = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
+    var set = function (id, v) { if (v) document.getElementById(id).textContent = String(v).slice(0, 120); };
+    set('fName', q.name);
+    set('fPtn', q.ptn);
+    var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(q.date || '');
+    if (m) set('fDate', Number(m[3]) + ' ' + months[Number(m[2]) - 1] + ' ' + (Number(m[1]) + 543));
+  })();
+</script>
+</body>
+</html>
