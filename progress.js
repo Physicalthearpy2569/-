@@ -11,7 +11,7 @@
 
 // หัวเอกสาร (ชื่อหน่วยบริการ) — แก้ที่นี่ที่เดียว
 const PN_ORG = ['โรงพยาบาลส่งเสริมสุขภาพตำบลบ้านแหลมโพธิ์', 'งานกายภาพบำบัด ตำบลบ้านกร่าง อำเภอเมืองพิษณุโลก จังหวัดพิษณุโลก'];
-const PN = { lang: 'th', marks: true, respTouched: false, queued: false };
+const PN = { lang: 'th', marks: true, respTouched: false, queued: false, ivMode: 'full' };
 const PN_MONTHS = {
   th: ['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'],
   en: ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
@@ -371,8 +371,11 @@ function pnDoc_() {
   if (!sheet || !REC.meta || !REC.patient) return;
   const data = recCollect_();
   sheet.className = 'pn-paper' + (PN.marks ? '' : ' plain') + (REC.meta.status === 'final' && !REC.dirty ? '' : ' draft');
-  sheet.lang = PN.lang;
-  sheet.innerHTML = pnDocHtml_(data, PN.lang);
+  const initial = REC.meta.kind !== 'progress';
+  sheet.lang = initial ? 'th' : PN.lang;
+  sheet.classList.toggle('iv', initial);
+  sheet.innerHTML = initial ? ivDocHtml_(data, PN.ivMode === 'full') : pnDocHtml_(data, PN.lang);
+  document.querySelectorAll('#ivMode button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === PN.ivMode)));
   document.querySelectorAll('#pnLang button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === PN.lang)));
   const note = document.getElementById('pnPrintNote');
   if (note) note.textContent = !REC.meta.id || REC.dirty ? 'ยังมีการแก้ไขที่ไม่ได้บันทึก — บันทึกก่อนจึงพิมพ์ได้' : (REC.meta.status !== 'final' ? 'ฉบับร่าง: พิมพ์ได้ แต่จะมีคำว่า ฉบับร่าง กำกับ' : '');
@@ -581,17 +584,183 @@ function pnPrintDone_() {
 /** พิมพ์เอกสาร: คัดลอกแผ่นเอกสารไปไว้นอกหน้าเว็บ (ซ่อนส่วนอื่นทั้งหมดตอนพิมพ์) — ต้องบันทึกก่อน เอกสารจึงตรงกับข้อมูลในระบบ */
 function pnPrint_() {
   if (!REC.meta.id || REC.dirty) { toast('บันทึกก่อนพิมพ์ เพื่อให้เอกสารตรงกับข้อมูลในระบบ'); return; }
+  pnPrintPrep_();
+  window.print();
+}
+/** เตรียมหน้าพิมพ์: คัดลอกแผ่นเอกสารไปไว้นอกหน้าเว็บ แล้วซ่อนส่วนอื่นทั้งหมด */
+function pnPrintPrep_() {
   pnDoc_();
   let root = document.getElementById('printRoot');
   if (!root) { root = document.createElement('div'); root.id = 'printRoot'; document.body.appendChild(root); }
   const sheet = document.getElementById('pnSheet');
-  root.innerHTML = `<div class="${sheet.className.replace('pn-paper', 'pn-paper plain')}" lang="${PN.lang}">${sheet.innerHTML}</div>`;
+  root.innerHTML = `<div class="${sheet.className.replace('pn-paper', 'pn-paper plain')}" lang="${sheet.lang}">${sheet.innerHTML}</div>`;
   // ชื่อเอกสาร = ชื่อไฟล์ที่เบราว์เซอร์เสนอเมื่อเลือก "บันทึกเป็น PDF"
   if (!document.body.classList.contains('pn-printing')) {
     PN.title = document.title;
     document.body.classList.add('pn-printing');
     window.addEventListener('afterprint', pnPrintDone_);
   }
-  document.title = `Progress note ${REC.patient.ptn} ${REC.meta.date}`;
-  window.print();
+  document.title = `${REC.meta.kind === 'progress' ? 'Progress note' : 'เวชระเบียน'} ${REC.patient.ptn} ${REC.meta.date}`;
+}
+// กด Ctrl+P เองขณะเปิดเวชระเบียน: พิมพ์เฉพาะแผ่นเอกสาร ไม่ใช่ทั้งหน้าเว็บ
+window.addEventListener('beforeprint', () => {
+  const view = document.getElementById('recordView');
+  if (document.body.classList.contains('pn-printing') || !view || view.classList.contains('hidden') || !document.getElementById('pnSheet')) return;
+  pnPrintPrep_();
+});
+
+
+/* ---------------- ใบแรกรับ (แบบประเมินครั้งแรก) ฉบับพร้อมพิมพ์ ----------------
+ * จัดตามแบบฟอร์มเวชระเบียนเดิม 5 ส่วน · full = เห็นทุกช่องของฟอร์ม (ช่องที่ไม่ได้ติ๊กเป็นกล่องว่าง) · ไม่ full = เฉพาะที่บันทึก
+ */
+function ivWire_() {
+  const wrap = document.getElementById('pnWrap');
+  if (!wrap) return;
+  wrap.querySelectorAll('[data-pnview]').forEach(b => b.addEventListener('click', () => { pnSetView_(b.dataset.pnview); window.scrollTo(0, 0); }));
+  pnSetView_(wrap.dataset.view);
+  try { const v = localStorage.getItem('ivMode'); if (v === 'full' || v === 'short') PN.ivMode = v; } catch (e) { /* ใช้ค่าเริ่มต้น */ }
+  document.getElementById('ivMode').addEventListener('click', e => {
+    const b = e.target.closest('button');
+    if (!b) return;
+    PN.ivMode = b.dataset.v === 'short' ? 'short' : 'full';
+    try { localStorage.setItem('ivMode', PN.ivMode); } catch (err) { /* จำไม่ได้ก็ไม่เป็นไร */ }
+    pnDoc_();
+  });
+  const marks = document.getElementById('pnMarks');
+  marks.checked = PN.marks;
+  marks.addEventListener('change', () => { PN.marks = marks.checked; pnDoc_(); });
+  document.getElementById('pnPrintBtn').addEventListener('click', pnPrint_);
+  pnDoc_();
+}
+
+function ivDocHtml_(d, full) {
+  const p = REC.patient, meta = REC.meta;
+  const mk = s => `<mark>${esc_(s)}</mark>`;
+  const has = k => d[k] !== undefined && d[k] !== '' && d[k] !== false;
+  const v = k => has(k) ? mk(d[k]) : '';
+  const join = a => a.filter(Boolean).join(' ');
+  const cb = (on, label, detail) => !on && !full ? '' : `<span class="cb${on ? ' on' : ''}">${on ? mk(label) : esc_(label)}${on && detail ? ' ' + detail : ''}</span>`;
+  const row = (label, value) => value ? `<div class="r"><b>${label}</b><span class="v">${value}</span></div>` : (full ? `<div class="r"><b>${label}</b><span class="v none">-</span></div>` : '');
+  const ny = (key, label, detail) => {
+    const yes = d[key] === 'yes';
+    if (!has(key)) return full ? row(label, '') : '';
+    return !yes && !full ? row(label, mk('None')) : `<div class="r"><b>${label}</b><span class="v">${cb(!yes, 'None')}${cb(yes, 'Yes', detail)}</span></div>`;
+  };
+  const line = html => html ? `<div class="ln">${html}</div>` : '';
+  const col = (title, inner) => inner ? `<div class="col"><h5>${title}</h5>${inner}</div>` : '';
+  const date = document.getElementById('recDate') ? document.getElementById('recDate').value : meta.date;
+  const age = recAge_();
+  const name = `${p.firstName || ''} ${p.lastName || ''}`.trim();
+  const sexText = recSex_() === 'M' ? 'ชาย' : (recSex_() === 'F' ? 'หญิง' : '-');
+  const wait = has('p1_consult') && date && d.p1_consult <= date ? Math.round((new Date(date + 'T00:00:00Z') - new Date(d.p1_consult + 'T00:00:00Z')) / 86400000) : null;
+
+  /* (1) Personal data */
+  const ud = [d.p1_ud1, d.p1_ud2, d.p1_ud3].filter(Boolean);
+  const consent = d.p1_consent === 'signed' ? 'ลงนามในใบยินยอมแล้ว' : (d.p1_consent === 'verbal' ? 'ยินยอมด้วยวาจา' : '');
+  const p1 = row('Chief complaint', v('p1_cc')) + row('Present history', has('p1_ph') ? mk(d.p1_ph).replace(/\n/g, '<br>') : '') +
+    row('Past history U/D', join([ud.length ? mk(ud.join(', ')) : '', v('p1_ud_note')])) +
+    (has('p1_acc') || full ? row('Accident', join([v('p1_acc'), /^no/i.test(d.p1_acc || '') ? '' : v('p1_acc_note')])) : '') +
+    ny('p1_fall', 'Falling history', v('p1_fall_note')) + ny('p1_prec', 'Precaution', v('p1_prec_note')) + ny('p1_contra', 'Contraindication', v('p1_contra1')) +
+    ny('p1_red', 'Red flag', [v('p1_red1'), v('p1_red2')].filter(Boolean).join(', ')) + ny('p1_orange', 'Orange flag', v('p1_orange1')) +
+    ny('p1_yellow', 'Yellow flag', [v('p1_yellow1'), v('p1_yellow2')].filter(Boolean).join(', ')) +
+    row('Medical diagnosis', [d.p1_mdx1, d.p1_mdx2, d.p1_mdx3, d.p1_mdx4].filter(Boolean).map(mk).join(', ')) + row('PT diagnosis', v('p1_ptdx')) +
+    row('การยินยอม', consent ? mk(consent) + (has('p1_consent_by') ? ' โดย ' + v('p1_consent_by') : '') : '');
+
+  /* (2) Physical examination */
+  const sym = n => { const k = recKn_('p2_sym', n); return has(k) || has(k + '_at') ? join([v(k), has(k + '_side') || has(k + '_at') ? 'of ' + mk(join([d[k + '_side'], d[k + '_at']])) : '']) : ''; };
+  const nrs = join([has('p2_nrs_rest') ? 'Rest ' + mk(d.p2_nrs_rest + '/10') : '', has('p2_nrs_func') ? 'Function ' + mk(d.p2_nrs_func + '/10') : '']);
+  const tenderAt = k => join([d[k + '_side'], d[k + '_at'], d[k + '_muscle']]);
+  const romAt = k => join([d[k + '_type'], d[k + '_side'], d[k + '_joint'], d[k + '_dir'], has(k + '_deg') ? d[k + '_deg'] + '°' : '']);
+  const tender = [d.p2_tender === 'yes' ? tenderAt('p2_tender') : '', tenderAt('p2_tender2')].filter(Boolean).map(mk).join(', ');
+  const roms = [d.p2_rom === 'limit' ? romAt('p2_rom') : '', romAt('p2_rom2'), romAt('p2_rom3')].filter(Boolean).map(mk).join(', ');
+  const left = row('Behavior of symptoms', [sym(1), sym(2)].filter(Boolean).join(' · ')) + row('NRS', nrs) + row('Frequency', v('p2_freq')) +
+    row('Aggravate', v('p2_agg')) + row('Ease', v('p2_ease')) +
+    (has('p2_tender') || full ? `<div class="r"><b>Tenderness</b><span class="v">${cb(d.p2_tender !== 'yes', 'None')}${cb(d.p2_tender === 'yes', 'Yes', tender)}</span></div>` : '') +
+    (has('p2_rom') || roms || full ? `<div class="r"><b>ROM</b><span class="v">${cb(d.p2_rom === 'full', 'Full all direction')}${cb(d.p2_rom === 'limit' || !!roms, 'Limit at', roms)}</span></div>` : '');
+  const POSTS = [['p2_post_fhp', 'Forward head'], ['p2_post_rs', 'Round shoulder'], ['p2_post_ws', 'Winged scapula'], ['p2_post_chin', 'Chin out'], ['p2_post_kyphosis', 'Thoracic kyphosis']];
+  const incorrect = d.p2_post === 'incorrect';
+  const post = has('p2_post') || full ? col('Posture', line(cb(d.p2_post === 'normal', 'Normal') + cb(incorrect, 'Incorrect')) +
+    (incorrect || full ? POSTS.map(x => line(cb(incorrect && !!d[x[0]], x[1]))).join('') + (incorrect && has('p2_post_other') ? line(cb(true, d.p2_post_other)) : '') : '')) : '';
+  // Special test และ Performance test: แสดงเฉพาะรายการที่ตรวจ (ไม่แสดงช่องว่างแม้ในฟอร์มเต็ม)
+  const st = [['p2_st_upper', 'Shoulder / upper'], ['p2_st_lower', 'Lumbar / lower']].filter(x => d[x[0]] && (has(x[0] + '_test') || has(x[0] + '_res'))).map(x =>
+    line(`<span class="cb on">${mk(x[1])} ${join([v(x[0] + '_test'), has(x[0] + '_res') ? ': ' + v(x[0] + '_res') : ''])}</span>`)).join('') +
+    (d.p2_st_other && has('p2_st_other_note') ? line(`<span class="cb on">${mk('อื่น ๆ')} ${v('p2_st_other_note')}</span>`) : '');
+  const age2 = recAge_(), sex2 = recSex_();
+  const tests = ((REC.setup && REC.setup.tests) || []).filter(t => t.key !== 'eq5d' && t.key !== 'barthel');
+  const testLine = t => {
+    const k = 'pt_' + t.key, on = has(k);
+    let detail = '';
+    if (on) {
+      const crit = recCriterion_(t, age2, sex2), n = Number(d[k]);
+      detail = mk(d[k] + ' ' + t.unit) + (crit && isFinite(n) ? ` (${crit.below(n) ? 'ต่ำกว่าเกณฑ์' : 'ผ่านเกณฑ์'} ${esc_(crit.text)})` : '');
+    }
+    return on ? line(cb(true, t.askName && has(k + '_label') ? d[k + '_label'] : t.name, detail)) : '';
+  };
+  const perf = tests.map(testLine).join('') +
+    (!(has('pt_eq5d') || has('pt_eq5d_vas')) ? '' : line(cb(true, 'EQ-5D-5L', join([has('pt_eq5d') ? 'utility ' + mk(d.pt_eq5d) : '', has('pt_eq5d_vas') ? 'VAS ' + mk(d.pt_eq5d_vas) : ''])))) +
+    (has('pt_barthel') ? line(cb(true, 'Barthel ADL', mk(d.pt_barthel + '/20') + ' ' + mk(recBarthelGroup_(Number(d.pt_barthel))))) : '');
+  const p2 = `<div class="two"><div>${left}</div>${post}</div>` + (st ? `<div class="grp">Special test</div><div class="lst">${st}</div>` : '') +
+    `<div class="grp">Performance test</div>` + (perf ? `<div class="three">${perf}</div>` : '<div class="ln none">NA</div>');
+
+  /* (3) Problem list · (4) Plan & goal */
+  const prob = [
+    ['p3_pain', 'Pain at', join([d.p3_pain_side, d.p3_pain_at, d.p3_pain_muscle])], ['p3_rom', 'ROM limited', join([d.p3_rom_joint, d.p3_rom_dir])],
+    ['p3_imb', 'Muscle imbalance', d.p3_imb_muscle ? 'of ' + d.p3_imb_muscle : ''], ['p3_numb', 'Numbness', join([d.p3_numb_side, d.p3_numb_at])],
+    ['p3_amb', 'Poor ambulation', ''], ['p3_decPerf', 'Decrease performance', ''], ['p3_hcm', 'Healthcare management', ''], ['p3_other', 'Others', d.p3_other_note || '']
+  ].map(x => line(cb(!!d[x[0]], x[1], x[2] ? mk(x[2]) : ''))).join('') +
+    (d.p3_decPerf && has('p3_decPerf_detail') ? `<div class="ln sm">${mk(d.p3_decPerf_detail).replace(/\n/g, '<br>')}</div>` : '');
+  const plan = [['ex', 'Exercise'], ['mod', 'Modality'], ['hp', 'Health promotion'], ['nerve', 'Nerve mobilization'], ['amb', 'Ambulation/transfer training'], ['bal', 'Balance training'], ['home', 'Home program']]
+    .map(x => line(cb(!!d['p4_plan_' + x[0]], x[1]))).join('') + line(cb(!!d.p4_plan_other, 'อื่น ๆ', v('p4_plan_other_note')));
+  const within = (n, unit) => n ? ` ภายใน ${mk(n)} ${esc_(unit || '')}` : '';
+  const stg = line(cb(!!d.p4_stg_pain, 'Relieve pain', within(d.p4_stg_pain_n, 'visit'))) + line(cb(!!d.p4_stg_follow, 'ปฏิบัติตามที่นักกายภาพสอนได้อย่างถูกต้อง', within(d.p4_stg_follow_n, 'visit'))) +
+    line(cb(!!d.p4_stg_other, 'อื่น ๆ', v('p4_stg_other_note')));
+  const ltg = line(cb(!!d.p4_ltg_perf, 'Increase physical performance')) + line(cb(!!d.p4_ltg_qol, 'Increase QOL')) +
+    line(cb(!!d.p4_ltg_rtf, 'Return to function', join([v('p4_ltg_rtf_what'), within(d.p4_ltg_rtf_n, d.p4_ltg_rtf_unit)]))) +
+    line(cb(!!d.p4_ltg_hcm, 'Improve skills for healthcare management', within(d.p4_ltg_hcm_n, d.p4_ltg_hcm_unit)));
+  const goal = (stg ? '<div class="ln"><b>Short term</b></div>' + stg : '') + (ltg ? '<div class="ln"><b>Long term</b></div>' + ltg : '');
+  const p34 = `<div class="three">${col('(3) Problem list', prob)}${col('(4) Plan of treatment', plan)}${col('(4) Goal', goal)}</div>`;
+
+  /* (5) Intervention */
+  const types = fam => { const out = []; for (let i = 1; i <= REC_TX_SLOTS; i++) { const k = 'p5_' + fam + i; if (has(k + '_type')) out.push(k); } return out; };
+  const modRows = types('m'), exRows = types('e');
+  const modText = k => join([has(k + '_side') || has(k + '_at') ? 'AT ' + mk(join([d[k + '_side'], d[k + '_at']])) : '', has(k + '_mode') ? 'Mode ' + v(k + '_mode') : '',
+    has(k + '_int') ? 'Intensity ' + v(k + '_int') : '', has(k + '_pts') ? mk(d[k + '_pts'] + ' จุด') : '', has(k + '_min') ? mk(d[k + '_min'] + ' นาที/จุด') : '', v(k + '_note')]);
+  const exText = k => join([has(k + '_side') || has(k + '_at') ? 'OF ' + mk(join([d[k + '_side'], d[k + '_at']])) : '', v(k + '_detail'),
+    has(k + '_reps') ? mk(d[k + '_reps'] + ' ครั้ง/set') : '', has(k + '_sets') ? mk(d[k + '_sets'] + ' set/วัน') : '', has(k + '_days') ? mk(d[k + '_days'] + ' วัน/สัปดาห์') : '']);
+  // ฟอร์มเต็ม: ชนิดทั้งหมดในรายการตัวเลือกเป็นกล่องให้ติ๊ก (ชนิดที่ทำแล้วขึ้นพร้อมรายละเอียด)
+  const famLines = (rows, list, text) => {
+    const used = rows.map(k => d[k + '_type']);
+    const all = full ? ((REC.setup && REC.setup.options[list]) || []).filter(t => used.indexOf(t) === -1) : [];
+    return rows.map(k => line(cb(true, d[k + '_type'], text(k)))).join('') + all.map(t => line(cb(false, t))).join('');
+  };
+  const aid = d.p5_amb_aid ? (/^(no\b|none|ไม่ใช้|ไม่มี)/i.test(d.p5_amb_aid) ? 'ไม่ใช้เครื่องช่วยเดิน' : 'with ' + d.p5_amb_aid) : '';
+  const train = line(cb(!!d.p5_amb, 'Ambulation training', join([v('p5_amb_level'), v('p5_amb_pattern'), aid ? mk(aid) : '', v('p5_amb_note')]))) +
+    line(cb(!!d.p5_tr, 'Transfer training', join([v('p5_tr_type'), v('p5_tr_level'), v('p5_tr_note')]))) +
+    line(cb(!!d.p5_bal, 'Balance training', v('p5_bal_note'))) + line(cb(!!d.p5_other && has('p5_other_note'), 'อื่น ๆ', v('p5_other_note'))) +
+    line(cb(!!d.p5_behav, 'ปรับพฤติกรรม', 'all times')) +
+    line(cb(!!d.p5_pa, 'Increase PA', join([has('p5_pa_min') ? mk(d.p5_pa_min + ' นาที/วัน') : '', has('p5_pa_days') ? mk(d.p5_pa_days + ' วัน/สัปดาห์') : ''])));
+  const edu = [d.p5_edu1, d.p5_edu2, d.p5_edu_note].filter(Boolean);
+  const after = row('คำแนะนำ', edu.map(mk).join(' · ')) + (d.p5_hp || full ? `<div class="r"><b>Home program</b><span class="v">${cb(!!d.p5_hp, 'ให้ Home program', v('p5_hp_note'))}</span></div>` : '') +
+    row('NRS ก่อน / หลังรักษา', has('p5_nrs_pre') || has('p5_nrs_post') ? join([has('p5_nrs_pre') ? 'ก่อน ' + mk(d.p5_nrs_pre + '/10') : '', has('p5_nrs_post') ? 'หลัง ' + mk(d.p5_nrs_post + '/10') : '']) : '');
+  const p5 = `<div class="two">${col('Modality / Manual', famLines(modRows, 'modality', modText))}${col('Exercise / Training', famLines(exRows, 'exercise', exText) + train)}</div>${after}`;
+
+  const part = (label, body) => `<div class="part"><div class="side"><span>${label}</span></div><div class="body">${body || '<span class="none">ไม่ได้บันทึก</span>'}</div></div>`;
+  const signer = pnSigner_(d.pn_sign);
+  const by = meta.updatedBy || meta.createdBy;
+  const stamp = meta.updatedAt || meta.createdAt;
+  return `
+    <table class="pn-tbl"><thead><tr><td><div class="pn-run">${esc_(name)} · PTN ${esc_(p.ptn)} · ${esc_(pnDate_(date, 'th'))}</div></td></tr></thead><tbody><tr><td>
+    <div class="pn-org">${esc_(PN_ORG[0])}<small>${esc_(PN_ORG[1])}</small></div>
+    <div class="pn-ttl">แบบบันทึกทางกายภาพบำบัด</div>
+    <div class="idrow"><div><b>PTN</b> ${esc_(p.ptn)}</div><div><b>ชื่อ-สกุล</b> ${esc_(name)}</div><div><b>เพศ</b> ${sexText}</div><div><b>อายุ</b> ${age !== null ? age + ' ปี' : '-'}</div>
+      <div><b>Session</b> ${esc_(meta.session)}</div><div><b>Consult date</b> ${has('p1_consult') ? esc_(pnDate_(d.p1_consult, 'th')) : '-'}</div>
+      <div><b>วันที่รับบริการ</b> ${esc_(pnDate_(date, 'th'))}${has('p2_time') ? ' เวลา ' + esc_(d.p2_time) + ' น.' : ''}</div><div><b>รอคอย</b> ${wait === null ? '-' : wait + ' วัน'}</div></div>
+    ${part('(1) Personal Data', p1)}${part('(2) Physical Examination', p2)}${part('(3) Problem · (4) Plan &amp; Goal', p34)}${part('(5) Intervention', p5)}
+    <div class="pn-keep"><div class="pn-sign"><div class="pn-sign-box">
+      <div class="pn-sign-line">ลงชื่อ ......................................................</div>
+      <div>( ${signer.name ? mk(signer.name) : '......................................................'} )</div>
+      <div>นักกายภาพบำบัด เลขที่ใบอนุญาต ${signer.license ? mk(signer.license) : '..................'}</div>
+      <div>วันที่ ${esc_(pnDate_(date, 'th'))}</div></div></div>
+    <div class="pn-foot">${meta.id && meta.status === 'final' ? `บันทึกในระบบโดย ${esc_(by)}${stamp ? ' เมื่อ ' + pnStamp_(stamp, 'th') : ''}` : 'ฉบับร่าง ยังไม่ได้บันทึกเป็นเวชระเบียน'}</div></div>
+    </td></tr></tbody></table>`;
 }

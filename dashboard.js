@@ -629,6 +629,27 @@ async function dashLoadOutcomes_() {
   host.innerHTML = dashOutcomesHtml_(res.data);
   if (DASH.tab === 'out') dashAnimate_(host.closest('.dpanel'));
 }
+/** 5 อันดับการวินิจฉัย และหัตถการที่ให้บ่อย (หลังบ้านรุ่นก่อน 2026-10-16a ไม่ส่งมา = ไม่แสดง) */
+function dashDxProcHtml_(o) {
+  if (!o.dx && !o.procedures) return '';
+  const w = o.wait;
+  const wait = w && w.n ? `<div class="dsheet dsum dsum-3">
+      <div class="dsum-cell"><div class="lb">ระยะรอคอยเฉลี่ย (consult ถึงรับบริการ)</div><div class="num"><span data-count="${w.avg}" data-dec="1">${w.avg.toFixed(1)}</span><small>วัน</small></div><div class="note">จาก ${w.n} ราย ที่กรอกวันที่ consult</div></div>
+      <div class="dsum-cell"><div class="lb">ได้รับบริการภายใน 7 วัน</div><div class="num"><span data-count="${w.within7}">${w.within7}</span><small>ราย</small></div><div class="note">${dashPct_(w.within7, w.n)} ของ ${w.n} ราย</div></div>
+      <div class="dsum-cell"><div class="lb">รอสั้นสุด / นานสุด</div><div class="num">${w.min}<small>ถึง</small>${w.max}<small>วัน</small></div></div>
+    </div>` : '';
+  const bars = (rows, of) => rows && rows.length ? `<div class="dhb dhb-wide">${rows.map((r, i) => `
+      <span class="nm" title="${esc_(r.name)}">${i + 1}. ${esc_(r.name)}</span>
+      <div class="tr"><i class="att" data-w="${(r.n / Math.max(1, rows[0].n) * 100).toFixed(1)}"></i></div>
+      <span class="vl">${r.n}<small>${of}</small><em>${r.pct === null ? '' : r.pct.toFixed(r.pct % 1 ? 1 : 0) + '%'}</em></span>`).join('')}</div>` : '<div class="dash-empty">ช่วงนี้ยังไม่มีข้อมูล</div>';
+  const dx = o.dx || { medical: [], pt: [] };
+  return `${wait}<div class="dcols">
+      <div class="dsheet"><header><h3>5 อันดับโรค</h3><p class="dsub">Medical diagnosis จากแบบประเมินครั้งแรก ${o.records} ฉบับ (1 ฉบับมีได้หลายโรค)</p></header>
+        <div class="dpad">${bars(dx.medical, 'ราย')}${dx.pt && dx.pt.length ? `<p class="dsub" style="margin:14px 0 6px">PT diagnosis</p>${bars(dx.pt, 'ราย')}` : ''}</div></div>
+      <div class="dsheet"><header><h3>หัตถการที่ให้</h3><p class="dsub">จำนวนครั้งที่มารักษาที่ได้รับหัตถการนั้น จาก ${o.records + (o.notes || 0)} ครั้ง (แรกรับ + Progress note)</p></header>
+        <div class="dpad">${bars(o.procedures, 'ครั้ง')}</div></div>
+    </div>`;
+}
 function dashOutcomesHtml_(o) {
   const note = '<div class="dinfo">ตัวเลขในแท็บนี้มาจากเวชระเบียนที่กดบันทึกแล้ว ค่าแรกรับ (ระดับปวด ผลทดสอบสมรรถภาพ Barthel EQ-5D) นับจากแบบประเมินครั้งแรก ส่วนปวดก่อนและหลังรักษานับทุกครั้งที่มารักษา รวม Progress note</div>';
   if (!o.records && !o.notes) {
@@ -653,6 +674,7 @@ function dashOutcomesHtml_(o) {
       ${nrsCell('ระดับปวดแรกรับ ขณะใช้งาน (NRS เฉลี่ย)', o.nrs.func)}
     </div>
     ${dashPainHtml_(o.pain)}
+    ${dashDxProcHtml_(o)}
     <div class="dcols">
       <div class="dsheet"><header><h3>ผลทดสอบสมรรถภาพที่ต่ำกว่าเกณฑ์</h3><p class="dsub">จำนวนรายที่ต่ำกว่าเกณฑ์ จากผู้ที่ได้ทดสอบและมีเกณฑ์เทียบ</p></header>
         <div class="dpad">${testRows ? `<div class="dhb dhb-wide">${testRows}</div>` : '<div class="dash-empty">ช่วงนี้ยังไม่มีผลทดสอบสมรรถภาพ</div>'}</div></div>

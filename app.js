@@ -126,7 +126,7 @@ function jsonp_(action, payload) {
 // ปลุกสคริปต์ทันทีที่หน้าเว็บโหลด (ก่อนผู้ใช้กดอะไรเลย) เผื่อเครื่องเย็นอยู่ (ไม่มีคนใช้มาสักพัก)
 // กว่าผู้ใช้จะพิมพ์ชื่อ/รหัสผ่านแล้วกดเข้าสู่ระบบเสร็จ สคริปต์มักจะอุ่นพอแล้ว ไม่ต้องรอผลอะไรจากตรงนี้
 // คำตอบของ ping บอกรุ่นของหลังบ้านด้วย ใช้เตือนเมื่อวางโค้ดใหม่ใน Apps Script แล้วแต่ยังไม่ได้อัปเดตเว็บแอปเป็นเวอร์ชันใหม่
-const EXPECTED_BACKEND = '2026-10-15a';
+const EXPECTED_BACKEND = '2026-10-16b';
 jsonp_('ping', {}).then(checkBackendVersion_).catch(backendUnreachable_);
 
 /** ping ไม่ได้คำตอบเลย: ส่วนใหญ่คืออัปเดตเว็บแอปก่อนอนุมัติสิทธิ์ใหม่ของสคริปต์ หรือเน็ตมีปัญหา */
@@ -2539,7 +2539,7 @@ function renderFeedback_(f) {
   if (o) kpis.push({ label: 'ร้อยละความพึงพอใจ', num: o.percent.toFixed(1) + '%', cls: 'hero', sub: 'คะแนนเฉลี่ยทุกข้อ เทียบคะแนนเต็ม' });
   if (o && o.avg !== null) kpis.push({ label: `คะแนนเฉลี่ย (เต็ม ${o.max})`, num: o.avg.toFixed(2) });
   if (o) kpis.push({ label: 'ตอบระดับมากขึ้นไป', num: o.satisfied.toFixed(1) + '%', sub: 'สัดส่วนคำตอบที่ได้ 80% ของคะแนนเต็มขึ้นไป' });
-  kpis.push({ label: 'ผู้ตอบแบบประเมิน (คน)', num: f.total, sub: rate === null ? '' : (rate > 100 ? 'มากกว่าจำนวน visit ในช่วงนี้' : `ประมาณ ${rate}% ของ visit ในช่วงนี้`) });
+  kpis.push({ label: 'ผู้ตอบแบบประเมิน (คน)', num: f.total, sub: rate === null ? '' : (f.given ? (rate > 100 ? `มากกว่าจำนวน session ที่ให้ทำแบบประเมิน (${f.given})` : `${rate}% ของ ${f.given} session ที่ให้ทำแบบประเมิน`) : (rate > 100 ? 'มากกว่าจำนวน visit ในช่วงนี้' : `ประมาณ ${rate}% ของ visit ในช่วงนี้`)) });
 
   const qRows = (f.questions || []).map(q => `<tr>
       <td>${esc_(q.title)}</td>

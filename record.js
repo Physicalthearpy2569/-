@@ -12,6 +12,9 @@ const REC = {
   patient: null,    // คนไข้ของแบบฟอร์มที่เปิดอยู่
   meta: null,       // { id, session, status, date, kind, ... } ของชุดที่เปิดอยู่ (id ว่าง = ยังไม่เคยบันทึก) kind = initial | progress
   ctx: null,        // Progress note: ข้อมูลประกอบจากหลังบ้าน { initial, prev, visit, nextAppt }
+  layout: 'step',   // ใบแรกรับ: 'step' = กรอกทีละขั้น · 'all' = เห็นทั้ง 5 ชุดในหน้าเดียว (จำไว้ในเบราว์เซอร์)
+  step: 1,          // ขั้นที่เปิดอยู่ (1-4) เมื่อกรอกทีละขั้น
+  auto: null,       // ใบแรกรับฉบับใหม่: { touched: { ช่อง: true }, last: { ช่อง: ค่าที่ระบบเติม } } — ระบบเสนอ Problem list / Plan ให้จนกว่าผู้ใช้จะแก้เอง
   dirty: false,     // มีการแก้ไขที่ยังไม่ได้บันทึก
   autoDec: '',      // ข้อความ Decrease performance ที่ระบบเติมให้ล่าสุด (ใช้ดูว่าผู้ใช้แก้เองหรือยัง)
   saving: false
@@ -369,8 +372,10 @@ function recPart5_() {
     recTxBlock_(),
     // ระดับปวดก่อนและหลังรักษาครั้งนี้: ใช้ทำกราฟผลลัพธ์ในหน้าสถิติ (กรอกครบทั้งสองช่องจึงถูกนับ)
     rSub('Pain ก่อนและหลังรักษาครั้งนี้'),
-    rRow('NRS · ก่อนรักษา', rNrs('p5_nrs_pre', 'NRS ก่อนรักษา')),
-    rRow('NRS · หลังรักษา', rNrs('p5_nrs_post', 'NRS หลังรักษา'))
+    rRow('NRS · ก่อนรักษา', rNrs('p5_nrs_pre', 'NRS ก่อนรักษา'), rTx('เติมจาก NRS ขณะใช้งานด้านบนให้ กดเลือกเองได้')),
+    rRow('NRS · หลังรักษา', rNrs('p5_nrs_post', 'NRS หลังรักษา')),
+    rSub('ลงชื่อ'),
+    rWide(rRow('ผู้ลงชื่อ', rDD('pn_sign', 'signer', 'เลือกผู้ลงชื่อ', 'pn-signer'), rTx('นักกายภาพบำบัดผู้ประเมิน · เพิ่มชื่อได้ที่ ตั้งค่า &gt; ตัวเลือกในแบบฟอร์มเวชระเบียน')))
   ].join(''));
 }
 
@@ -634,6 +639,15 @@ function recStatusLabel_(status) {
   return status === 'final' ? '<span class="badge attended-tag">บันทึกแล้ว</span>' : '<span class="badge special-tag">ฉบับร่าง</span>';
 }
 
+const REC_NEW_DEFAULTS = { p1_fall: 'none', p1_prec: 'none', p1_contra: 'none', p1_red: 'none', p1_orange: 'none', p1_yellow: 'none', p2_post: 'normal', p2_tender: 'none', p2_rom: 'full' };
+/** ผู้ลงชื่อของฉบับใหม่: คนที่เลือกครั้งล่าสุดในเครื่องนี้ (ถ้ายังอยู่ในรายการ) หรือคนเดียวที่มีในรายการ */
+function recDefaultSigner_() {
+  const list = (REC.setup && REC.setup.options.signer) || [];
+  let last = '';
+  try { last = localStorage.getItem('pnSigner') || ''; } catch (e) { /* ไม่มีที่เก็บในเบราว์เซอร์ก็ไม่เป็นไร */ }
+  return list.indexOf(last) !== -1 ? last : (list.length === 1 ? list[0] : '');
+}
+
 /**
  * เปิดแบบฟอร์ม — opts: { ptn, id } แก้ไขชุดเดิม · { ptn, date } เปิด session ใหม่ · { ptn, kind: 'progress', session } Progress note ฉบับใหม่
  * (ยังไม่บันทึกจนกว่าจะกดปุ่ม) · view: 'doc' = เปิด Progress note ที่หน้าเอกสารพร้อมพิมพ์
@@ -675,10 +689,13 @@ async function openRecordForm_(opts) {
     const nextSession = (rr.data.records || []).reduce((m, r) => Math.max(m, r.session || 0), 0) + 1;
     const date = opts.date && opts.date <= today ? opts.date : today;
     REC.meta = { id: '', session: nextSession, status: 'new', date: date, kind: 'initial' };
-    data = { p2_time: nowHm() };
+    // ค่าเริ่มต้นของฉบับใหม่ (เห็นบนหน้ากรอกและแก้ได้ก่อนบันทึก): ไม่มีประวัติล้ม/ข้อควรระวัง/ข้อห้าม/Flag, Posture ปกติ, ไม่กดเจ็บ, ROM เต็ม
+    data = Object.assign({ p2_time: nowHm() }, REC_NEW_DEFAULTS);
+    data.pn_sign = recDefaultSigner_();
   }
+  REC.auto = REC.meta.kind === 'initial' && !opts.id ? { touched: {}, last: {} } : null;
   if (!REC.patient) { body.innerHTML = '<p class="error-text">ไม่พบข้อมูลคนไข้ของเวชระเบียนนี้ในทะเบียน</p>'; return; }
-  if (REC.meta.kind !== 'progress') { recRender_(data, today); return; }
+  if (REC.meta.kind !== 'progress') { recRender_(data, today, opts); return; }
   if (typeof pnRender_ !== 'function') {
     body.innerHTML = '<p class="error-text">ยังไม่พบไฟล์ progress.js บนเว็บ — อัปโหลด progress.js ขึ้น GitHub คู่กับ index.html แล้วเปิดหน้านี้ใหม่</p><button type="button" class="secondary" id="recBackBtn">กลับ</button>';
     document.getElementById('recBackBtn').addEventListener('click', () => showView_('patients'));
@@ -687,11 +704,56 @@ async function openRecordForm_(opts) {
   pnRender_(data, today, opts);
 }
 
-function recRender_(data, today) {
+// ใบแรกรับแบบกรอกทีละขั้น: 4 ขั้นสั้น ๆ จาก 5 ชุดของแบบฟอร์ม (ชุดที่ 3 และ 4 อยู่ขั้นเดียวกัน)
+const REC_STEPS = [['ประวัติ', [1]], ['ตรวจร่างกาย', [2]], ['ปัญหา แผน เป้าหมาย', [3, 4]], ['การรักษา', [5]]];
+const REC_PART_NAMES = ['Personal Data', 'Physical Examination', 'Problem list', 'Plan & Goal', 'Intervention'];
+function recLayoutLoad_() {
+  let v = '';
+  try { v = localStorage.getItem('recLayout') || ''; } catch (e) { /* ใช้ค่าเริ่มต้น */ }
+  REC.layout = v === 'all' ? 'all' : 'step';
+}
+/** แถบนำทางของใบแรกรับ: ทีละขั้น = 4 ขั้น (กดแล้วเปิดขั้นนั้น) · ทั้งหน้า = 5 ชุด (กดแล้วเลื่อนไปชุดนั้น) */
+function recNavHtml_() {
+  const btns = REC.layout === 'step'
+    ? REC_STEPS.map((s, i) => `<button type="button" data-step="${i + 1}"><span class="n">${i + 1}</span>${s[0]}</button>`).join('')
+    : REC_PART_NAMES.map((s, i) => `<button type="button" data-part="${i + 1}"><span class="n">${i + 1}</span>${s}</button>`).join('');
+  return btns + `<button type="button" class="rec-layout" data-layout="${REC.layout === 'step' ? 'all' : 'step'}" title="สลับรูปแบบหน้ากรอก">${REC.layout === 'step' ? 'ดูทั้งหน้า' : 'กรอกทีละขั้น'}</button>`;
+}
+/** แสดงเฉพาะชุดของขั้นที่เปิดอยู่ (ชุดที่ไม่แสดงยังถูกบันทึกตามปกติ ต่างจากช่องที่ซ่อนเพราะยังไม่ได้เลือกใช้) */
+function recApplyLayout_(scroll) {
+  const body = recBody_();
+  const nav = body.querySelector('.rec-steps');
+  if (!nav || !REC.meta || REC.meta.kind === 'progress') return;
+  nav.innerHTML = recNavHtml_();
+  const stepMode = REC.layout === 'step';
+  const parts = stepMode ? REC_STEPS[REC.step - 1][1] : [1, 2, 3, 4, 5];
+  for (let i = 1; i <= 5; i++) document.getElementById('recPart' + i).classList.toggle('rec-off', parts.indexOf(i) === -1);
+  nav.querySelectorAll('button[data-step]').forEach(b => b.classList.toggle('on', Number(b.dataset.step) === REC.step));
+  const prev = document.getElementById('recPrevBtn'), next = document.getElementById('recNextBtn');
+  if (prev) { prev.classList.toggle('hidden', !stepMode); prev.disabled = REC.step === 1; }
+  if (next) next.classList.toggle('hidden', !stepMode || REC.step === REC_STEPS.length);
+  if (!stepMode) recSpy_();
+  if (scroll) { const head = body.querySelector('.pn-tabs') || nav; head.scrollIntoView({ block: 'start' }); }
+}
+/** เปิดขั้นที่มีช่องนี้อยู่ (ใช้ตอนบันทึกไม่ผ่าน เพื่อพาไปที่ช่องที่ต้องแก้) */
+function recReveal_(el) {
+  const card = el && el.closest('.rec-card.rec-off');
+  if (!card) return;
+  const n = Number(card.id.replace('recPart', ''));
+  const at = REC_STEPS.findIndex(s => s[1].indexOf(n) !== -1);
+  if (at !== -1) { REC.step = at + 1; recApplyLayout_(false); }
+}
+
+function recRender_(data, today, opts) {
   const p = REC.patient, m = REC.meta;
+  recLayoutLoad_();
+  REC.step = 1;
+  const view = opts && opts.view === 'doc' ? 'doc' : 'form';
   const b = /^\d{4}-\d{2}-\d{2}$/.test(p.birthDate || '') ? p.birthDate : '';
   const body = recBody_();
   body.innerHTML = `
+   <div class="pn-wrap iv" id="pnWrap" data-view="${view}">
+   <div class="pn-form" id="pnForm">
     <div class="rec-head">
       <div class="rec-head-top">
         <button type="button" class="secondary rec-mini" id="recBackBtn">‹ กลับหน้าคนไข้</button>
@@ -705,7 +767,9 @@ function recRender_(data, today) {
         ${m.updatedBy || m.createdBy ? `<span class="kv">บันทึกล่าสุดโดย <b>${esc_(m.updatedBy || m.createdBy)}</b></span>` : ''}
       </div>
       <div class="rec-head-form">
-        <label>วันที่ประเมิน<input type="date" id="recDate" value="${recAttr_(m.date)}" max="${recAttr_(today)}"></label>
+        <label>วันที่ consult<input type="date" data-k="p1_consult" id="recConsult" max="${recAttr_(today)}" aria-label="วันที่ consult (ส่งปรึกษา/ขอรับบริการ)"></label>
+        <label>วันที่รับบริการ<input type="date" id="recDate" value="${recAttr_(m.date)}" max="${recAttr_(today)}"></label>
+        <span class="rec-wait" id="recWait"></span>
         <label>เพศ<select id="recSex"><option value="">ไม่ระบุ</option><option value="M">ชาย</option><option value="F">หญิง</option></select></label>
         <label>วันเกิด (วัน / เดือน / ปี พ.ศ.)
           <span class="rec-birth">
@@ -721,18 +785,35 @@ function recRender_(data, today) {
       </div>
       <p class="error-text" id="recBirthError"></p>
     </div>
-    <nav class="rec-steps" aria-label="ไปยังชุด">
-      ${['Personal Data', 'Physical Examination', 'Problem list', 'Plan & Goal', 'Intervention'].map((s, i) => `<button type="button" data-part="${i + 1}"><span class="n">${i + 1}</span>${s}</button>`).join('')}
-    </nav>
+    <div class="pn-tabs" role="tablist" aria-label="สลับหน้ากรอกกับใบแรกรับ">
+      <button type="button" role="tab" data-pnview="form">กรอกข้อมูล</button>
+      <button type="button" role="tab" data-pnview="doc">ใบแรกรับ (พร้อมพิมพ์)</button>
+    </div>
+    <div class="pn-entry">
+    <nav class="rec-steps" aria-label="ไปยังขั้นของแบบฟอร์ม"></nav>
     ${recPart1_()}${recPart2_()}${recPart3_()}${recPart4_()}${recPart5_()}
     <div class="rec-foot">
       <span class="tx" id="recDirty"></span>
       <p class="error-text" id="recError"></p>
       <span class="rec-foot-btns">
+        <button type="button" class="secondary" id="recPrevBtn">‹ ย้อน</button>
+        <button type="button" class="secondary rec-next" id="recNextBtn">ถัดไป ›</button>
         ${m.status !== 'final' ? '<button type="button" class="secondary" id="recSaveDraftBtn">บันทึกร่าง</button>' : ''}
         <button type="button" class="primary" id="recSaveFinalBtn">${m.status === 'final' ? 'บันทึกการแก้ไข' : 'บันทึกเวชระเบียน'}</button>
       </span>
-    </div>`;
+    </div>
+    </div>
+   </div>
+   <aside class="pn-doc" id="pnDoc" aria-label="ใบแรกรับฉบับพร้อมพิมพ์">
+     <div class="pn-bar">
+       <span class="pn-seg" id="ivMode" role="group" aria-label="รูปแบบของใบแรกรับ"><button type="button" data-v="full">ฟอร์มเต็ม เห็นทุกช่อง</button><button type="button" data-v="short">เฉพาะที่บันทึก</button></span>
+       <label class="pn-marks"><input type="checkbox" id="pnMarks"> เน้นสีส่วนที่กรอก</label>
+       <button type="button" class="primary rec-mini" id="pnPrintBtn">พิมพ์ / บันทึกเป็น PDF</button>
+     </div>
+     <p class="pn-bar-note" id="pnPrintNote"></p>
+     <div class="pn-paper" id="pnSheet"></div>
+   </aside>
+   </div>`;
   document.getElementById('recSex').value = p.sex === 'M' || p.sex === 'F' ? p.sex : '';
   if (b) document.getElementById('recBirthMonth').value = String(Number(b.slice(5, 7)));
   document.getElementById('recConsentPrint').href = 'consent.html#' + ['name=' + encodeURIComponent(`${p.firstName} ${p.lastName}`), 'ptn=' + encodeURIComponent(p.ptn), 'date=' + encodeURIComponent(m.date)].join('&');
@@ -749,6 +830,14 @@ function recRender_(data, today) {
   const nowText = recEvaluateTests_();
   REC.autoDec = saved === nowText.trim() ? nowText : (saved ? '\u0000' : '');
   recWire_();
+  recApplyLayout_(false);
+  REC.nrsTouched = data.p5_nrs_pre !== undefined && data.p5_nrs_pre !== '';
+  recAuto_();
+  recNrsAuto_();
+  recWait_();
+  REC.hpLast = recHpText_();
+  recHpAuto_();
+  if (typeof ivWire_ === 'function') ivWire_();
   recSetDirty_(false);
   const content = document.querySelector('.content');
   if (content) content.scrollTop = 0;
@@ -820,7 +909,10 @@ function recWireBody_() {
   });
   // Progress note: หลังการแก้ไขทุกครั้ง ปรับผลอัตโนมัติและเขียนเอกสารใหม่ (ผูกท้ายสุด จึงทำงานหลังตัวฟังด้านบน)
   ['change', 'input', 'click'].forEach(ev => body.addEventListener(ev, e => {
-    if (REC.meta && REC.meta.kind === 'progress' && typeof pnChanged_ === 'function') pnChanged_(e);
+    if (!REC.meta) return;
+    if (REC.meta.kind !== 'progress') { recAuto_(e); recNrsAuto_(e); recWait_(); }
+    recHpAuto_(e);
+    if (typeof pnChanged_ === 'function') pnChanged_(e);
   }));
 }
 
@@ -828,9 +920,19 @@ function recWire_() {
   const body = recBody_();
   recWireBody_();
   document.getElementById('recBackBtn').addEventListener('click', () => recBackToPatient_());
-  body.querySelectorAll('.rec-steps button').forEach(btn => btn.addEventListener('click', () => {
-    document.getElementById('recPart' + btn.dataset.part).scrollIntoView({ block: 'start', behavior: 'smooth' });
-  }));
+  body.querySelector('.rec-steps').addEventListener('click', e => {
+    const btn = e.target.closest('button');
+    if (!btn) return;
+    if (btn.dataset.part) { document.getElementById('recPart' + btn.dataset.part).scrollIntoView({ block: 'start', behavior: 'smooth' }); return; }
+    if (btn.dataset.step) { REC.step = Number(btn.dataset.step); recApplyLayout_(true); return; }
+    if (btn.dataset.layout) {
+      REC.layout = btn.dataset.layout === 'all' ? 'all' : 'step';
+      try { localStorage.setItem('recLayout', REC.layout); } catch (err) { /* จำไม่ได้ก็ไม่เป็นไร */ }
+      recApplyLayout_(true);
+    }
+  });
+  document.getElementById('recPrevBtn')?.addEventListener('click', () => { if (REC.step > 1) { REC.step--; recApplyLayout_(true); } });
+  document.getElementById('recNextBtn')?.addEventListener('click', () => { if (REC.step < REC_STEPS.length) { REC.step++; recApplyLayout_(true); } });
   recSpy_();
   document.getElementById('recFieldApply')?.addEventListener('click', () => {
     const a = (REC.field || []).find(x => x.id === document.getElementById('recFieldSel').value);
@@ -850,7 +952,7 @@ function recSpy_() {
   const steps = body && body.querySelector('.rec-steps');
   if (!steps) return;
   const bar = steps.getBoundingClientRect().bottom + 12;
-  const parts = Array.from(steps.querySelectorAll('button')).map(b => b.dataset.part);
+  const parts = Array.from(steps.querySelectorAll('button[data-part]')).map(b => b.dataset.part);
   if (!parts.length) return;
   let current = parts[0];
   parts.forEach(id => {
@@ -863,7 +965,7 @@ function recSpy_() {
   const atBottom = (el.scrollTop > 0 && el.scrollTop + window.innerHeight >= el.scrollHeight - 4) ||
     (content && content.scrollTop > 0 && content.scrollTop + content.clientHeight >= content.scrollHeight - 4);
   if (atBottom) current = parts[parts.length - 1];
-  steps.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.part === String(current)));
+  steps.querySelectorAll('button[data-part]').forEach(b => b.classList.toggle('on', b.dataset.part === String(current)));
 }
 let _recSpyQueued_ = false;
 function recSpySoon_() {
@@ -944,6 +1046,111 @@ function recApplyField_(a) {
   recApplyShow_();
   recScores_();
   recSyncDecPerf_(false);
+  recNrsAuto_();
+}
+
+/* ---------------- ใบแรกรับฉบับใหม่: ระบบเสนอ Problem list และ Plan of treatment ----------------
+ * ติ๊กให้จากผลตรวจ (ชุดที่ 2) และการรักษา (ชุดที่ 5) เห็นบนหน้ากรอกพร้อมป้าย "ระบบเสนอ" และแก้ได้
+ * ช่องไหนผู้ใช้กดเองแล้ว ระบบไม่แตะช่องนั้นอีก · เวชระเบียนที่เคยบันทึกแล้วเปิดกลับมาไม่ถูกเสนอ/แก้เอง
+ */
+const REC_AUTO_KEYS = ['p3_pain', 'p3_rom', 'p3_numb', 'p3_amb', 'p4_plan_ex', 'p4_plan_mod', 'p4_plan_hp', 'p4_plan_nerve', 'p4_plan_amb', 'p4_plan_bal', 'p4_plan_home'];
+/**
+ * ใบแรกรับ: NRS ก่อนรักษา (ชุดที่ 5) เติมจาก NRS ขณะใช้งาน (ชุดที่ 2) ถ้าไม่มีใช้ขณะพัก — จนกว่าผู้ใช้จะกดเลือกเอง
+ * เวชระเบียนที่บันทึกค่าไว้แล้วถือว่าผู้ใช้เลือกเอง ไม่ถูกแก้
+ */
+/** ระยะรอคอย: วันที่ consult ถึงวันที่รับบริการ (แสดงข้างหัวแบบฟอร์ม) */
+function recWait_() {
+  const out = document.getElementById('recWait'), c = document.getElementById('recConsult'), d = document.getElementById('recDate');
+  if (!out || !c || !d) return;
+  const days = c.value && d.value ? Math.round((new Date(d.value + 'T00:00:00Z') - new Date(c.value + 'T00:00:00Z')) / 86400000) : null;
+  out.textContent = days === null ? '' : (days < 0 ? 'วันที่ consult อยู่หลังวันที่รับบริการ' : `รอคอย ${days} วัน`);
+  out.classList.toggle('bad', days !== null && days < 0);
+}
+
+/**
+ * Home program: เมื่อติ๊ก "ให้ Home program" ระบบเติมรายการออกกำลังกายจากแถว Exercise ให้ในช่องรายละเอียด
+ * (ถ้าผู้ใช้แก้ข้อความเองแล้วจะไม่เขียนทับ ยกเว้นข้อความยังเป็นของที่ระบบเติมไว้)
+ */
+function recHpText_() {
+  const body = recBody_();
+  return Array.from(body.querySelectorAll('.rec-pick-item[data-slot="e"]:not(.hidden)')).map(it => {
+    const k = it.dataset.pre, g = s => recValueOf_(k + s);
+    if (!g('_type')) return '';
+    const where = [g('_side'), g('_at')].filter(Boolean).join(' ');
+    const dose = [[g('_reps'), 'ครั้ง/set'], [g('_sets'), 'set/วัน'], [g('_days'), 'วัน/สัปดาห์']].filter(x => x[0]).map(x => x[0] + ' ' + x[1]).join(' ');
+    return [g('_type'), g('_detail'), where, dose].filter(Boolean).join(' ');
+  }).filter(Boolean).join(' · ');
+}
+function recHpAuto_() {
+  const body = recBody_();
+  const box = body.querySelector('[data-k="p5_hp"]'), note = body.querySelector('[data-k="p5_hp_note"]');
+  if (!box || !note || !box.checked || note.disabled) return;
+  const text = recHpText_();
+  const cur = note.value.trim();
+  if (cur === '' || cur === (REC.hpLast || '')) { if (note.value !== text) { note.value = text; recGrow_(note); } }
+  REC.hpLast = text;
+}
+
+function recNrsAuto_(e) {
+  if (!REC.meta || REC.meta.kind === 'progress') return;
+  const g = recBody_().querySelector('[data-nrs="p5_nrs_pre"]');
+  if (!g) return;
+  if (e && e.type === 'click' && e.target.closest('[data-nrs="p5_nrs_pre"]')) { REC.nrsTouched = true; g.classList.remove('rec-autofill'); return; }
+  if (REC.nrsTouched) return;
+  const f = recPicked_('p2_nrs_func'), r = recPicked_('p2_nrs_rest');
+  const want = f !== null ? f : r;
+  g.querySelectorAll('button').forEach(b => b.classList.toggle('on', want !== null && b.dataset.v === String(want)));
+  g.classList.toggle('rec-autofill', want !== null);
+}
+
+function recAuto_(e) {
+  const A = REC.auto;
+  if (!A || !REC.meta || REC.meta.kind === 'progress') return;
+  const body = recBody_();
+  const f = k => body.querySelector(`[data-k="${k}"]`);
+  // ผู้ใช้แก้ช่องที่ระบบเสนอเอง: จำไว้ว่าช่องนี้เป็นของผู้ใช้แล้ว
+  // (ช่องติ๊กได้เหตุการณ์ click ก่อน change: นับทั้งสองแบบ ไม่งั้นระบบจะติ๊กกลับทันที)
+  const tk = e && (e.type === 'change' || e.type === 'click') && e.target && e.target.dataset ? e.target.dataset.k : '';
+  if (tk && (REC_AUTO_KEYS.indexOf(tk) !== -1 || A.last[tk] !== undefined)) A.touched[tk] = true;
+  const val = k => recShownValue_(k);
+  const nrs = k => { const n = recPicked_(k); return n === null ? 0 : n; };
+  const slotTypes = fam => Array.from(body.querySelectorAll(`.rec-pick-item[data-slot="${fam}"]:not(.hidden)`)).map(it => recValueOf_(it.dataset.pre + '_type')).filter(Boolean);
+  const mods = slotTypes('m'), exs = slotTypes('e');
+  const sym = val('p2_sym');
+  const want = {
+    p3_pain: /pain|ปวด/i.test(sym) && (nrs('p2_nrs_rest') > 0 || nrs('p2_nrs_func') > 0),
+    p3_numb: /numb|ชา/i.test(sym),
+    p3_rom: val('p2_rom') === 'limit',
+    p3_amb: val('p5_amb') === 'Y',
+    p4_plan_ex: exs.length > 0,
+    p4_plan_mod: mods.some(t => !/nerve/i.test(t)),
+    p4_plan_nerve: mods.some(t => /nerve/i.test(t)),
+    p4_plan_amb: val('p5_amb') === 'Y' || val('p5_tr') === 'Y',
+    p4_plan_bal: val('p5_bal') === 'Y',
+    p4_plan_home: val('p5_hp') === 'Y',
+    p4_plan_hp: val('p5_behav') === 'Y' || val('p5_pa') === 'Y'
+  };
+  let changed = false;
+  REC_AUTO_KEYS.forEach(k => {
+    const el = f(k);
+    if (!el) return;
+    if (!A.touched[k] && el.checked !== want[k]) { el.checked = want[k]; changed = true; }
+    const lab = el.closest('label');
+    if (lab) lab.classList.toggle('rec-auto', !A.touched[k] && el.checked && want[k]);
+  });
+  // ตำแหน่งของปัญหา: เติมจากผลตรวจ ตราบที่ผู้ใช้ยังไม่ได้เลือกเอง
+  const copy = (lead, pairs) => {
+    if (A.touched[lead] || !f(lead) || !f(lead).checked) return;
+    pairs.forEach(x => {
+      const el = f(x[0]), v = val(x[1]);
+      if (!el || A.touched[x[0]] || !v) return;
+      if (el.value === '' || el.value === A.last[x[0]]) { if (el.value !== v) { recSetField_(el, v); changed = true; } A.last[x[0]] = v; }
+    });
+  };
+  copy('p3_pain', [['p3_pain_side', 'p2_sym_side'], ['p3_pain_at', 'p2_sym_at']]);
+  copy('p3_numb', [['p3_numb_side', 'p2_sym_side'], ['p3_numb_at', 'p2_sym_at']]);
+  copy('p3_rom', [['p3_rom_joint', 'p2_rom_joint'], ['p3_rom_dir', 'p2_rom_dir']]);
+  if (changed) recApplyShow_();
 }
 
 /* ---------------- ซ่อนไว้จนกว่าจะใช้ ---------------- */
@@ -1071,10 +1278,13 @@ async function recSave_(status) {
   if (birth === null) { errEl.textContent = 'วันเกิดไม่ถูกต้องหรือกรอกไม่ครบ — แก้ไขหรือลบออกก่อนบันทึก'; document.getElementById('recBirthDay').focus(); return; }
   const date = document.getElementById('recDate').value;
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) { errEl.textContent = progress ? 'เลือกวันที่รับบริการก่อนบันทึก' : 'เลือกวันที่ประเมินก่อนบันทึก'; return; }
+  const consult = document.getElementById('recConsult');
+  if (consult && consult.value && consult.value > date) { errEl.textContent = 'วันที่ consult ต้องไม่หลังวันที่รับบริการ'; consult.focus(); return; }
   const data = recCollect_();
   if (birth) delete data.p1_age; // มีวันเกิดแล้ว ไม่ต้องเก็บอายุที่พิมพ์เอง (คำนวณได้เสมอ)
   if (data.pt_eq5d_vas !== undefined && !(Number(data.pt_eq5d_vas) >= 0 && Number(data.pt_eq5d_vas) <= 100)) {
     errEl.textContent = 'EQ-5D-5L: สุขภาพวันนี้ (VAS) ต้องเป็นเลข 0-100';
+    recReveal_(document.getElementById('recEq5d'));
     document.getElementById('recEq5d').open = true;
     recBody_().querySelector('[data-k="pt_eq5d_vas"]').focus();
     return;
@@ -1083,6 +1293,7 @@ async function recSave_(status) {
   const noType = Array.from(recBody_().querySelectorAll('.rec-pick-item[data-slot]:not(.hidden)')).find(it => !recValueOf_(it.dataset.pre + '_type'));
   if (noType) {
     errEl.textContent = 'เลือกชนิดของการรักษาให้ครบทุกแถว (แถวที่ไม่ใช้กด ✕ เอาออก)';
+    recReveal_(noType);
     noType.scrollIntoView({ block: 'center' });
     noType.querySelector('select').focus();
     return;
@@ -1093,12 +1304,14 @@ async function recSave_(status) {
   }
   if (!progress && status === 'final' && !data.p1_consent) {
     errEl.textContent = 'บันทึกการยินยอมของคนไข้ก่อนบันทึกเวชระเบียน (หรือกด บันทึกร่าง ไว้ก่อน)';
+    recReveal_(document.getElementById('recConsentRow'));
     document.getElementById('recConsentRow').scrollIntoView({ block: 'center' });
     recBody_().querySelector('[data-pair="p1_consent"]').focus();
     return;
   }
   if (!progress && status === 'final' && !data.p1_cc) {
     errEl.textContent = 'กรอก Chief complaint ก่อนบันทึกเวชระเบียน (หรือกด บันทึกร่าง ไว้ก่อน)';
+    recReveal_(recBody_().querySelector('[data-k="p1_cc"]'));
     recBody_().querySelector('[data-k="p1_cc"]').focus();
     return;
   }
@@ -1124,6 +1337,8 @@ async function recSave_(status) {
   recBody_().querySelectorAll('option[data-is-new]').forEach(o => { delete o.dataset.isNew; });
   recSetDirty_(false);
   if (progress) { pnSaved_(res.data); return; }
+  if (data.pn_sign) { try { localStorage.setItem('pnSigner', data.pn_sign); } catch (e) { /* จำไม่ได้ก็ไม่เป็นไร */ } }
+  if (typeof pnDoc_ === 'function') pnDoc_();
   if (res.data.status === 'final') {
     toast('บันทึกเวชระเบียนแล้ว');
     recBackToPatient_();
@@ -1191,7 +1406,7 @@ async function loadPatientRecords_(ptn) {
     <tr data-id="${recAttr_(r.id)}">
       <td>Session ${esc_(r.session)}</td><td>${esc_(fmtThaiDate_(r.date))}</td><td>${recStatusLabel_(r.status)}</td>
       <td>${esc_(r.chiefComplaint || '-')}</td><td>${esc_([r.medicalDx, r.ptDx].filter(Boolean).join(' · ') || '-')}</td>
-      <td class="rec-actions"><button type="button" class="primary rec-mini" data-note="${recAttr_(r.session)}">+ Progress note</button><button type="button" class="secondary rec-mini" data-open="${recAttr_(r.id)}">เปิด</button>${del(r)}</td>
+      <td class="rec-actions">${r.satAt ? `<span class="rec-sat done" title="ให้ทำแบบประเมินความพึงพอใจแล้ว">✓ ประเมินความพึงพอใจ ${esc_(fmtThaiDate_(r.satAt))}</span>` : `<button type="button" class="secondary rec-mini rec-sat" data-sat="${recAttr_(r.session)}" title="กดหลังให้คนไข้ทำแบบประเมินความพึงพอใจ (1 ครั้งต่อ session)">ให้ทำแบบประเมินแล้ว</button>`}<button type="button" class="primary rec-mini" data-note="${recAttr_(r.session)}">+ Progress note</button><button type="button" class="secondary rec-mini" data-open="${recAttr_(r.id)}">เปิด</button><button type="button" class="secondary rec-mini" data-print="${recAttr_(r.id)}">เอกสาร</button>${del(r)}</td>
     </tr>`).join('');
   box.innerHTML = `
     <h3>เวชระเบียน <button type="button" class="secondary rec-mini" id="recNewBtn">+ เปิด session ใหม่ (ประเมินครั้งแรก)</button></h3>
@@ -1212,6 +1427,14 @@ async function loadPatientRecords_(ptn) {
     openRecordForm_({ ptn: ptn });
   });
   box.querySelectorAll('[data-open]').forEach(b => b.addEventListener('click', () => openRecordForm_({ ptn: ptn, id: b.dataset.open })));
+  box.querySelectorAll('[data-sat]').forEach(b => b.addEventListener('click', async () => {
+    if (!window.confirm('บันทึกว่าคนไข้ทำแบบประเมินความพึงพอใจของ session นี้แล้ว (1 ครั้งต่อ session) ใช่ไหม')) return;
+    b.disabled = true;
+    const res = await api('markSatisfaction', { ptn: ptn, session: Number(b.dataset.sat) });
+    if (!res.ok) { toast('บันทึกไม่สำเร็จ: ' + res.error); b.disabled = false; return; }
+    toast(res.data.already ? 'session นี้บันทึกไว้แล้ว' : 'บันทึกแล้ว');
+    loadPatientRecords_(ptn);
+  }));
   box.querySelectorAll('[data-print]').forEach(b => b.addEventListener('click', () => openRecordForm_({ ptn: ptn, id: b.dataset.print, view: 'doc' })));
   box.querySelectorAll('[data-note]').forEach(b => b.addEventListener('click', () => {
     const session = Number(b.dataset.note);
@@ -1369,7 +1592,22 @@ function recOptionsRender_() {
       <button type="submit" class="secondary">เพิ่ม</button>
       <button type="button" class="primary" id="recOptSaveBtn"${REC_OPT.dirty ? '' : ' disabled'}>บันทึกรายการนี้</button>
       <span class="ropt-state" id="recOptState">${REC_OPT.dirty ? 'มีการแก้ไขที่ยังไม่ได้บันทึก' : ''}</span>
-    </form>`;
+    </form>
+    <div class="ropt-seed">
+      <button type="button" class="secondary" id="recOptSeedBtn">เติมตัวเลือกจากแบบฟอร์มเดิม</button>
+      <span class="panel-hint">เพิ่มตัวเลือกจากชีตเวชระเบียนเดิม (การวินิจฉัย, Special test, Flag, กล้ามเนื้อ ฯลฯ) ต่อท้ายทุกรายการ เฉพาะตัวที่ยังไม่มี ไม่ลบของที่ตั้งไว้ กดซ้ำได้</span>
+    </div>`;
+  document.getElementById('recOptSeedBtn').addEventListener('click', async e => {
+    if (REC_OPT.dirty && !window.confirm('รายการที่เปิดอยู่มีการแก้ไขที่ยังไม่ได้บันทึก และจะถูกทิ้ง เติมตัวเลือกต่อหรือไม่')) return;
+    e.target.disabled = true;
+    const res = await api('seedRecordOptions', {});
+    if (!res.ok) { toast('เติมตัวเลือกไม่สำเร็จ: ' + res.error); e.target.disabled = false; return; }
+    REC_OPT.options = res.data.options;
+    REC_OPT.items = (REC_OPT.options[REC_OPT.list] || []).slice();
+    REC_OPT.dirty = false;
+    toast(res.data.added ? `เพิ่ม ${res.data.added} ตัวเลือก ใน ${res.data.lists} รายการ` : 'ตัวเลือกจากแบบฟอร์มเดิมมีครบอยู่แล้ว');
+    recOptionsRender_();
+  });
   document.getElementById('recOptList').addEventListener('change', e => {
     if (REC_OPT.dirty && !window.confirm('รายการนี้มีการแก้ไขที่ยังไม่ได้บันทึก เปลี่ยนรายการโดยไม่บันทึกหรือไม่')) { e.target.value = REC_OPT.list; return; }
     REC_OPT.list = e.target.value;

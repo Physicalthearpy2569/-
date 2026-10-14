@@ -1357,7 +1357,7 @@ label {
 .pn-wrap[data-view="form"] .pn-doc, .pn-wrap[data-view="doc"] .pn-entry { display: none; }
 .pn-wrap, .pn-form, .pn-doc { min-width: 0; }
 /* หน้ากรอกของ Progress note เป็นคอลัมน์เดียวทุกขนาดจอ (แถวส่วนใหญ่ยาวเต็มบรรทัด) */
-.pn-form .rec-grid { grid-template-columns: minmax(0, 1fr); background: none; }
+.pn-wrap:not(.iv) .pn-form .rec-grid { grid-template-columns: minmax(0, 1fr); background: none; }
 .rec-row input.n { width: 84px; }
 .rec-grp.nw { flex-wrap: nowrap; }
 .pn-goal { flex: 1 1 100%; }
@@ -1465,3 +1465,65 @@ label {
 .ropt-add input { flex: 1 1 260px; }
 .ropt-state { flex: 1 1 100%; font-size: 13.5px; color: var(--ink-soft); }
 .ropt-state:empty { display: none; }
+
+/* ============================ รุ่น 2026-10-16a: ใบแรกรับทีละขั้น + ฉบับพิมพ์ ============================ */
+.rec-card.rec-off { display: none; }
+.rec-steps .rec-layout { margin-inline-start: auto; padding: 5px 14px; font-size: 13.5px; background: var(--surface); color: var(--ink-soft); border-style: dashed; }
+.rec-steps .rec-layout:hover { color: var(--teal-dark); }
+.rec-foot .rec-next { border-color: var(--teal); color: var(--teal-dark); font-weight: 600; }
+/* ช่องที่ระบบติ๊ก/เติมให้: ขีดเส้นใต้สีทองและป้ายเล็ก ให้รู้ว่าแก้ได้ */
+.rec-row label.ck.rec-auto::after { content: 'ระบบเสนอ'; margin-inline-start: 6px; padding: 0 7px; border-radius: 999px; background: #FBF1D9; color: #6B4A08; font-size: 11.5px; font-weight: 600; }
+.rec-nrs.rec-autofill button.on { background: #E9B949; border-color: #D9A62E; color: #3A2A05; }
+.rec-sat { margin-inline-end: 6px; }
+.rec-sat.done { display: inline-block; font-size: 12.5px; color: var(--teal-dark); background: var(--teal-tint); border-radius: 999px; padding: 3px 10px; white-space: nowrap; }
+.ropt-seed { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; margin-top: 14px; padding-top: 12px; border-top: 1px dashed var(--line); }
+.ropt-seed .panel-hint { margin: 0; flex: 1 1 260px; }
+
+/* ใบแรกรับฉบับพิมพ์: จัดตามแบบฟอร์มเดิม 5 ส่วน */
+.pn-paper.iv { font-size: 14px; line-height: 1.5; padding: 36px 40px 30px 56px; }
+.pn-paper.iv .pn-ttl { margin-bottom: 0; }
+.pn-paper.iv .idrow { display: grid; grid-template-columns: 1.1fr 2fr .8fr .9fr; gap: 0 12px; padding: 4px 8px; border: 1px solid #111; border-top: 0; }
+.pn-paper.iv .idrow > div:nth-child(5) { grid-column: span 1; }
+.pn-paper.iv .idrow > div:nth-child(6) { grid-column: span 3; }
+.pn-paper.iv .part { display: grid; grid-template-columns: 26px minmax(0, 1fr); border: 1px solid #111; border-top: 0; break-inside: auto; }
+.pn-paper.iv .part > .side { border-right: 1px solid #111; background: #F1F3F2; display: grid; place-items: center; }
+.pn-paper.iv .part > .side span { writing-mode: vertical-rl; transform: rotate(180deg); font-weight: 700; font-size: 12.5px; white-space: nowrap; padding: 6px 0; }
+.pn-paper.iv .part > .body { padding: 5px 9px 6px; min-width: 0; }
+.pn-paper.iv .r { display: flex; flex-wrap: wrap; gap: 0 12px; padding: 1px 0; align-items: baseline; break-inside: avoid; }
+.pn-paper.iv .r > b { flex: 0 0 148px; }
+.pn-paper.iv .r > .v { flex: 1 1 200px; min-width: 0; }
+.pn-paper.iv .cb { display: inline-block; position: relative; padding-left: 16px; margin-right: 12px; }
+.pn-paper.iv .cb::before { content: ''; position: absolute; left: 0; top: .38em; width: 10px; height: 10px; border: 1.2px solid #111; }
+.pn-paper.iv .cb.on::before { background: #111; box-shadow: inset 0 0 0 2px #fff; }
+.pn-paper.iv .two { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); gap: 0 16px; }
+.pn-paper.iv .three { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0 14px; }
+.pn-paper.iv .col h5 { margin: 2px 0 1px; font-size: 1em; text-decoration: underline; }
+.pn-paper.iv .ln { padding: .5px 0; break-inside: avoid; }
+.pn-paper.iv .ln .cb { margin-right: 0; }
+.pn-paper.iv .ln .cb + .cb { margin-left: 12px; }
+.pn-paper.iv .ln.sm { font-size: .9em; padding-left: 16px; }
+.pn-paper.iv .grp { font-weight: 700; margin-top: 4px; }
+.pn-paper.iv .none { color: #777; }
+.pn-paper.iv .pn-sign { margin-top: 16px; }
+@media (min-width: 1600px) {
+  .pn-wrap.iv { grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); }
+}
+@media (max-width: 720px) {
+  .pn-paper.iv { padding: 20px 12px; font-size: 13px; }
+  .pn-paper.iv .two, .pn-paper.iv .three { grid-template-columns: minmax(0, 1fr); }
+  .pn-paper.iv .idrow { grid-template-columns: 1fr 1fr; }
+  .pn-paper.iv .idrow > div:nth-child(6) { grid-column: 1 / -1; }
+  .pn-paper.iv .r > b { flex-basis: 100%; }
+  .rec-steps .rec-layout { margin-inline-start: 0; }
+}
+@media print {
+  /* เลขหน้าทุกแผ่น (เบราว์เซอร์ที่รองรับ) — หัวกระดาษมีชื่อและ PTN ทุกแผ่นอยู่แล้ว · ขอบซ้าย 20 มม. เว้นไว้เจาะรูเข้าแฟ้ม */
+  @page { @bottom-right { content: 'หน้า ' counter(page) ' / ' counter(pages); font-size: 8.5pt; color: #555; } }
+  #printRoot .pn-paper.iv { font-size: 9.5pt; line-height: 1.38; padding: 0; }
+  #printRoot .pn-paper.iv .r > b { flex-basis: 34mm; }
+  #printRoot .pn-paper.iv .part > .side span { font-size: 8.5pt; }
+  #printRoot .pn-paper, #printRoot .pn-paper * { overflow-wrap: anywhere; }
+}
+
+.rec-wait { align-self: center; font-size: 14px; font-weight: 600; color: var(--teal-dark); margin-bottom: 8px; }
+.rec-wait.bad { color: var(--danger); }
