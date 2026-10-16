@@ -1029,7 +1029,7 @@ function recApplyField_(a) {
     const group = body.querySelector(`[data-nrs="${k}"]`);
     if (group) { group.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.v === v)); return; }
     const el = body.querySelector(`[data-k="${k}"]`);
-    if (el && el.type !== 'checkbox') recSetField_(el, v);
+    if (el && (el.type !== 'checkbox' || v === 'Y')) recSetField_(el, v); // ช่องติ๊ก: ติ๊กให้เมื่อผลจากแอปส่ง Y มา (เช่น Home program) ไม่เอาติ๊กออก
   });
   body.querySelector('[data-k="p2_as_id"]').value = a.id;
   body.querySelector('[data-k="p2_as_by"]').value = a.assessor || '';
