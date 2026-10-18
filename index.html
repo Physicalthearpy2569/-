@@ -5,30 +5,17 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>ระบบนัดหมายผู้ป่วย รพ.สต.</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&family=IBM+Plex+Sans+Thai+Looped:wght@400;500;600;700&family=Noto+Sans+Thai:wght@400;600&family=Sarabun:wght@400;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=20261016b" />
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;500;600;700&family=Noto+Serif+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css?v=20261008c" />
 </head>
 <body>
-  <!-- ลายโกนิโอมิเตอร์ (เครื่องวัดมุมข้อ) ใช้เป็นพื้นหลังหัวเว็บและหน้าเข้าสู่ระบบ -->
-  <svg width="0" height="0" style="position:absolute" aria-hidden="true"><symbol id="gonioArt" viewBox="-160 -160 320 172">
-    <path d="M-150 0A150 150 0 0 1 150 0" fill="none" stroke="rgba(255,255,255,.22)" stroke-width="1"/>
-    <path d="M-100 0A100 100 0 0 1 100 0" fill="none" stroke="rgba(255,255,255,.12)" stroke-width="1"/>
-    <path d="M-60 0A60 60 0 0 1 60 0" fill="none" stroke="rgba(255,255,255,.10)" stroke-width="1"/>
-    <path d="M-150.0 -0.0L-132.0 -0.0M-149.4 -13.1L-140.5 -12.3M-147.7 -26.0L-138.9 -24.5M-144.9 -38.8L-136.2 -36.5M-141.0 -51.3L-132.5 -48.2M-135.9 -63.4L-127.8 -59.6M-129.9 -75.0L-114.3 -66.0M-122.9 -86.0L-115.5 -80.9M-114.9 -96.4L-108.0 -90.6M-106.1 -106.1L-99.7 -99.7M-96.4 -114.9L-90.6 -108.0M-86.0 -122.9L-80.9 -115.5M-75.0 -129.9L-66.0 -114.3M-63.4 -135.9L-59.6 -127.8M-51.3 -141.0L-48.2 -132.5M-38.8 -144.9L-36.5 -136.2M-26.0 -147.7L-24.5 -138.9M-13.1 -149.4L-12.3 -140.5M0.0 -150.0L0.0 -132.0M13.1 -149.4L12.3 -140.5M26.0 -147.7L24.5 -138.9M38.8 -144.9L36.5 -136.2M51.3 -141.0L48.2 -132.5M63.4 -135.9L59.6 -127.8M75.0 -129.9L66.0 -114.3M86.0 -122.9L80.9 -115.5M96.4 -114.9L90.6 -108.0M106.1 -106.1L99.7 -99.7M114.9 -96.4L108.0 -90.6M122.9 -86.0L115.5 -80.9M129.9 -75.0L114.3 -66.0M135.9 -63.4L127.8 -59.6M141.0 -51.3L132.5 -48.2M144.9 -38.8L136.2 -36.5M147.7 -26.0L138.9 -24.5M149.4 -13.1L140.5 -12.3M150.0 0.0L132.0 0.0" stroke="rgba(255,255,255,.30)" stroke-width="1" fill="none"/>
-    <text x="-118" y="0" fill="rgba(255,255,255,.42)" font-size="9" text-anchor="middle" dominant-baseline="central">0°</text><text x="-102.2" y="-59" fill="rgba(255,255,255,.42)" font-size="9" text-anchor="middle" dominant-baseline="central">30°</text><text x="-59" y="-102.2" fill="rgba(255,255,255,.42)" font-size="9" text-anchor="middle" dominant-baseline="central">60°</text><text x="0" y="-118" fill="rgba(255,255,255,.42)" font-size="9" text-anchor="middle" dominant-baseline="central">90°</text><text x="59" y="-102.2" fill="rgba(255,255,255,.42)" font-size="9" text-anchor="middle" dominant-baseline="central">120°</text><text x="102.2" y="-59" fill="rgba(255,255,255,.42)" font-size="9" text-anchor="middle" dominant-baseline="central">150°</text><text x="118" y="0" fill="rgba(255,255,255,.42)" font-size="9" text-anchor="middle" dominant-baseline="central">180°</text>
-    <path d="M-150 0H150" stroke="rgba(255,255,255,.22)" stroke-width="1"/>
-    <path d="M100 0A100 100 0 0 0 50 -86.6" fill="none" stroke="#E2B354" stroke-width="3" stroke-linecap="round"/>
-    <path d="M0 0L75 -129.9" stroke="#E2B354" stroke-width="2" stroke-linecap="round"/>
-    <circle cx="0" cy="0" r="5" fill="#E2B354"/>
-  </symbol></svg>
 
   <!-- ---------- หน้าเข้าสู่ระบบ ---------- -->
   <section id="loginView" class="login-screen">
-    <svg class="login-art" aria-hidden="true"><use href="#gonioArt"/></svg>
     <div class="login-card">
       <div class="login-mark">รพ.สต.</div>
       <h1>ระบบนัดหมายผู้ป่วย</h1>
-      <p class="login-sub">งานกายภาพบำบัด รพ.สต.บ้านแหลมโพธิ์</p>
+      <p class="login-sub">งานกายภาพบำบัด</p>
       <form id="loginForm">
         <label>ชื่อผู้ใช้
           <input type="text" id="loginUsername" required autocomplete="username" />
@@ -39,45 +26,26 @@
         <button type="submit">เข้าสู่ระบบ</button>
         <p id="loginError" class="error-text"></p>
       </form>
-      <div class="version-banner hidden"></div>
     </div>
   </section>
 
   <!-- ---------- แอปหลัก ---------- -->
   <div id="appView" class="app hidden">
     <aside class="sidebar">
-      <div class="brand">
-        <svg class="brand-mark" viewBox="0 0 34 34" width="34" height="34" aria-hidden="true"><circle cx="17" cy="17" r="16.5" fill="#145040" stroke="#2A7B63"/><path d="M7 23A10 10 0 0 1 27 23" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"/><path d="M17 23L24 12" stroke="#E2B354" stroke-width="2.2" stroke-linecap="round"/><circle cx="17" cy="23" r="2.4" fill="#fff"/></svg>
-        <div class="brand-text">กายภาพบำบัด<span>รพ.สต.บ้านแหลมโพธิ์</span></div>
-      </div>
+      <div class="brand">รพ.สต. <span>นัดหมาย</span></div>
       <nav>
-        <button class="navBtn active" data-view="calendar"><svg class="nav-ic" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><rect x="2.5" y="3.5" width="13" height="12" rx="2"/><path d="M2.5 7.5h13M6 2v3M12 2v3"/></svg>ปฏิทิน<span class="nav-long">นัดหมาย</span></button>
-        <button class="navBtn" data-view="patients"><svg class="nav-ic" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="8" cy="8" r="5"/><path d="M12 12l4 4"/></svg>ค้นหา<span class="nav-long">คนไข้</span></button>
-        <button class="navBtn physio-only" data-view="records"><svg class="nav-ic" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M4 2.5h7l3 3v10H4z"/><path d="M6.5 9h5M6.5 12h5"/></svg>เวชระเบียน</button>
-        <button class="navBtn physio-only" data-view="dashboard"><svg class="nav-ic" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M3 15V9M7.5 15V4M12 15v-4M16 15V7"/></svg>สถิติ</button>
-        <button class="navBtn physio-only" data-view="settings"><svg class="nav-ic" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="9" cy="9" r="2.5"/><path d="M9 2v2.5M9 13.5V16M2 9h2.5M13.5 9H16M4 4l1.8 1.8M12.2 12.2L14 14M14 4l-1.8 1.8M5.8 12.2L4 14"/></svg>ตั้งค่า</button>
+        <button class="navBtn active" data-view="calendar">ปฏิทินนัดหมาย</button>
+        <button class="navBtn physio-only" data-view="dashboard">สถิติ</button>
+        <button class="navBtn physio-only" data-view="settings">ตั้งค่า</button>
       </nav>
       <div class="who">
         <div class="who-name" id="whoName"></div>
         <div class="who-role" id="whoRole"></div>
         <button id="logoutBtn">ออกจากระบบ</button>
-        <div class="version-tag" id="versionTag"></div>
       </div>
     </aside>
 
     <main class="content">
-      <header class="mast" id="mast">
-        <svg class="mast-art" aria-hidden="true"><use href="#gonioArt"/></svg>
-        <div class="mast-row">
-          <div>
-            <h1>งานกายภาพบำบัด</h1>
-            <div class="mast-org">โรงพยาบาลส่งเสริมสุขภาพตำบลบ้านแหลมโพธิ์<br>ตำบลบ้านกร่าง อำเภอเมืองพิษณุโลก จังหวัดพิษณุโลก</div>
-          </div>
-          <div class="mast-today"><b id="mastDate"></b><span id="mastToday"></span></div>
-        </div>
-      </header>
-      <div class="version-banner hidden"></div>
-      <div class="version-banner hidden" id="pwBanner">บัญชีนี้ยังใช้รหัสผ่านเริ่มต้นหรือรหัสผ่านสั้นกว่า 8 ตัวอักษร — ก่อนใช้กับข้อมูลคนไข้จริง ให้เปลี่ยนรหัสผ่านในชีต Users (คอลัมน์ password) แล้วเข้าสู่ระบบใหม่</div>
       <!-- ปฏิทิน -->
       <section id="calendarView" class="view">
         <header class="view-head">
@@ -85,12 +53,6 @@
             <button id="prevMonth" aria-label="เดือนก่อนหน้า">‹</button>
             <h2 id="monthLabel"></h2>
             <button id="nextMonth" aria-label="เดือนถัดไป">›</button>
-          </div>
-          <!-- ค้นหาคนไข้แบบย่อ: ดูนัดครั้งหน้า แล้วค่อยกดไปหน้ารายละเอียด -->
-          <div class="quick-search" id="quickSearch">
-            <input type="search" id="quickSearchInput" placeholder="ค้นหาคนไข้ (ชื่อ / PTN)" autocomplete="off" aria-label="ค้นหาคนไข้" />
-            <div id="quickSearchResults" class="patient-suggest hidden"></div>
-            <div id="quickSearchCard" class="quick-card hidden"></div>
           </div>
           <div class="legend">
             <span class="legend-item"><i class="dot opd"></i>OPD</span>
@@ -101,51 +63,10 @@
             <span class="legend-item"><i class="dot closed"></i>ปิดทำการ</span>
           </div>
         </header>
-        <!-- นัดวันนี้: กด "มาแล้ว" ได้จากหน้านี้เลย -->
-        <div id="todayPanel" class="today-panel hidden">
-          <div class="today-head">
-            <h3 id="todayTitle">นัดวันนี้</h3>
-            <span id="todayCount" class="today-count"></span>
-            <button type="button" id="todayRefreshBtn" class="link-btn">รีเฟรช</button>
-          </div>
-          <ul id="todayList" class="today-list"></ul>
-        </div>
-
         <div class="weekday-row">
           <span data-full="จันทร์" data-short="จ"></span><span data-full="อังคาร" data-short="อ"></span><span data-full="พุธ" data-short="พ"></span><span data-full="พฤหัสบดี" data-short="พฤ"></span><span data-full="ศุกร์" data-short="ศ"></span>
         </div>
         <div id="calendarGrid" class="calendar-grid"></div>
-      </section>
-
-      <!-- ค้นหาคนไข้: ข้อมูลและนัดทั้งหมดของคนไข้ 1 คน -->
-      <section id="patientsView" class="view hidden">
-        <header class="view-head">
-          <h2>ค้นหาคนไข้</h2>
-        </header>
-        <div class="patient-search">
-          <input type="search" id="patientSearchInput" placeholder="พิมพ์ชื่อ นามสกุล หรือ PTN (อย่างน้อย 2 ตัวอักษร)" autocomplete="off" />
-          <div id="patientSearchResults" class="patient-suggest hidden"></div>
-          <p id="patientSearchHint" class="panel-hint" style="margin:8px 0 0;"></p>
-        </div>
-        <div id="patientProfile"></div>
-      </section>
-
-      <!-- เมนูเวชระเบียน (เฉพาะนักกายภาพ): ค้นหาคนไข้เพื่อเปิดเวชระเบียน + รายการที่บันทึกล่าสุด -->
-      <section id="recordsView" class="view hidden">
-        <header class="view-head">
-          <h2>เวชระเบียน</h2>
-        </header>
-        <div class="patient-search">
-          <input type="search" id="recordSearchInput" placeholder="พิมพ์ชื่อ นามสกุล หรือ PTN เพื่อเปิดเวชระเบียนของคนไข้" autocomplete="off" />
-          <div id="recordSearchResults" class="patient-suggest hidden"></div>
-          <p id="recordSearchHint" class="panel-hint" style="margin:8px 0 0;"></p>
-        </div>
-        <div id="recordsRecent"></div>
-      </section>
-
-      <!-- เวชระเบียน: แบบประเมินครั้งแรก (เฉพาะนักกายภาพ — เนื้อหาสร้างโดย record.js) -->
-      <section id="recordView" class="view hidden">
-        <div id="recordBody"></div>
       </section>
 
       <!-- สถิติ (เฉพาะนักกายภาพ) -->
@@ -159,50 +80,26 @@
           <div class="dash-presets">
             <button type="button" class="secondary" data-preset="thisMonth">เดือนนี้</button>
             <button type="button" class="secondary" data-preset="lastMonth">เดือนที่แล้ว</button>
-            <button type="button" class="secondary" data-preset="quarter">ไตรมาสนี้</button>
             <button type="button" class="secondary" data-preset="fiscal">ปีงบประมาณนี้</button>
             <button type="button" class="secondary" data-preset="year">ปีนี้</button>
           </div>
           <div class="dash-range">
-            <select id="dashKind" aria-label="เลือกช่วงเวลาแบบ">
-              <option value="custom">กำหนดวันเอง</option>
-              <option value="month">รายเดือน</option>
-              <option value="quarter">รายไตรมาส</option>
-              <option value="fiscal">ปีงบประมาณ</option>
-            </select>
-            <span class="dash-kind" data-kind="custom"><input type="date" id="dashFrom" aria-label="ตั้งแต่วันที่" /><span>ถึง</span><input type="date" id="dashTo" aria-label="ถึงวันที่" /></span>
-            <span class="dash-kind hidden" data-kind="month"><select id="dashMonth" aria-label="เดือน"></select><select id="dashYear" aria-label="ปี พ.ศ."></select></span>
-            <span class="dash-kind hidden" data-kind="quarter fiscal"><select id="dashFy" aria-label="ปีงบประมาณ"></select></span>
-            <span class="dash-kind hidden" data-kind="quarter"><select id="dashQuarter" aria-label="ไตรมาส">
-              <option value="1">ไตรมาส 1 (ต.ค. ถึง ธ.ค.)</option><option value="2">ไตรมาส 2 (ม.ค. ถึง มี.ค.)</option>
-              <option value="3">ไตรมาส 3 (เม.ย. ถึง มิ.ย.)</option><option value="4">ไตรมาส 4 (ก.ค. ถึง ก.ย.)</option></select></span>
+            <input type="date" id="dashFrom" />
+            <span>ถึง</span>
+            <input type="date" id="dashTo" />
             <button type="button" id="dashApplyBtn" class="primary">ดูสถิติ</button>
-            <label class="dash-compare" for="dashCompare">เทียบย้อนหลัง
-              <select id="dashCompare"><option value="0">ไม่เทียบ</option><option value="1">1 ปี</option><option value="2">2 ปี</option><option value="3">3 ปี</option></select></label>
           </div>
         </div>
         <p id="dashNote" class="panel-hint"></p>
-        <div class="dtabs-scroll hidden" id="dashTabs"><div class="dtabs" role="tablist" aria-label="มุมมองสถิติ">
-          <button type="button" class="dtab" role="tab" id="dtab-over" data-tab="over" aria-selected="true"><svg class="nav-ic" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M3 15V9M7.5 15V4M12 15v-4M16 15V7"/></svg>ภาพรวมบริการ</button>
-          <button type="button" class="dtab" role="tab" id="dtab-map" data-tab="map" aria-selected="false" tabindex="-1"><svg class="nav-ic" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M2.5 4.5l4.5-2 4 2 4.5-2v11l-4.5 2-4-2-4.5 2z"/><path d="M7 2.5v11M11 4.5v11"/></svg>แผนที่ตำบล</button>
-          <button type="button" class="dtab" role="tab" id="dtab-out" data-tab="out" aria-selected="false" tabindex="-1"><svg class="nav-ic" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M2 13l4-5 3 3 3-6 4 4"/></svg>ผลลัพธ์การรักษา</button>
-          <button type="button" class="dtab" role="tab" id="dtab-sat" data-tab="sat" aria-selected="false" tabindex="-1"><svg class="nav-ic" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="9" cy="9" r="6.5"/><path d="M6 10.5c.8 1.2 1.8 1.8 3 1.8s2.2-.6 3-1.8M6.5 7h.01M11.5 7h.01"/></svg>ความพึงพอใจ</button>
-        </div></div>
         <div id="dashBody"></div>
       </section>
 
       <!-- ตั้งค่า (เฉพาะนักกายภาพ) -->
       <section id="settingsView" class="view hidden">
         <header class="view-head">
-          <h2>ตั้งค่า</h2>
+          <h2>ตั้งค่าเวลาให้บริการ</h2>
           <button id="refreshSettingsBtn" class="secondary">รีเฟรช</button>
         </header>
-
-        <div class="panel" id="recOptionsPanel">
-          <h3>ตัวเลือกในแบบฟอร์มเวชระเบียน</h3>
-          <p class="panel-hint">ตัวเลือกของดรอปดาวน์ในแบบประเมินครั้งแรกและ Progress note (ใช้ชุดเดียวกัน) เลือกรายการแล้วเพิ่ม ลบ หรือเรียงลำดับได้ ลบตัวเลือกออกไม่กระทบเวชระเบียนที่บันทึกไปแล้ว</p>
-          <div id="recOptionsBox"></div>
-        </div>
 
         <div class="panel">
           <h3>ช่วงเวลานัดรายวัน</h3>
@@ -399,15 +296,11 @@
       <label>เวลาเริ่ม
         <select id="apptStart"></select>
       </label>
-      <input type="hidden" id="apptPtn" />
-      <div id="apptPatientStatus" class="patient-status hidden"></div>
-      <div id="apptPatientSummary" class="patient-summary hidden"></div>
       <label>ชื่อ
-        <input type="text" id="apptFirstName" required autocomplete="off" placeholder="พิมพ์ชื่อหรือ PTN เพื่อค้นหาคนไข้เดิม" />
+        <input type="text" id="apptFirstName" required />
       </label>
-      <div id="apptPatientSuggest" class="patient-suggest hidden"></div>
       <label>นามสกุล
-        <input type="text" id="apptLastName" required autocomplete="off" />
+        <input type="text" id="apptLastName" required />
       </label>
       <label>หมู่
         <input type="text" id="apptMoo" placeholder="เช่น 4" required />
@@ -422,10 +315,8 @@
         <input type="text" id="apptNote" />
       </label>
       <div class="section-label" style="margin-top:14px;">รหัส ICD-10</div>
-      <div id="apptPrevIcd10" class="prev-icd hidden"></div>
       <div class="icd-slots" id="apptIcd10Slots"></div>
       <div class="section-label">รหัส ICD-9</div>
-      <div id="apptPrevIcd9" class="prev-icd hidden"></div>
       <div class="icd-slots" id="apptIcd9Slots"></div>
       <p id="apptError" class="error-text"></p>
       <div class="modal-actions">
@@ -530,7 +421,6 @@
   <div id="apptDetailModal" class="modal hidden">
     <h3>รายละเอียดนัดหมาย</h3>
     <div id="apptDetailBody" class="detail-body"></div>
-    <button type="button" class="record-btn physio-only" id="apptDetailRecordBtn">เวชระเบียนของคนไข้คนนี้ ›</button>
 
     <div class="section-label" style="margin-top:0;">แก้ไขข้อมูลนัด</div>
     <label>ประเภทนัด
@@ -578,9 +468,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=20261016b"></script>
-  <script src="record.js?v=20261016b"></script>
-  <script src="progress.js?v=20261016b"></script>
-  <script src="dashboard.js?v=20261016b"></script>
+  <script src="app.js?v=20261008c"></script>
 </body>
 </html>
