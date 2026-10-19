@@ -103,14 +103,15 @@ function recPart1_() {
 /* ---------------- แบบประเมินแบบติ๊กทีละข้อ: EQ-5D-5L และ Barthel ADL ---------------- */
 
 // EQ-5D-5L: 5 มิติ มิติละ 5 ระดับ (1 = ไม่มีปัญหา ... 5 = มากที่สุด/ทำไม่ได้)
-// คะแนนอรรถประโยชน์ = 1 - ผลรวมค่าสัมประสิทธิ์ของแต่ละมิติ (ค่าสัมประสิทธิ์ฉบับภาษาไทย: Pattanaphesaj J., Mahidol University; 2014)
+// คะแนนอรรถประโยชน์ = 1 - ผลรวมค่าสัมประสิทธิ์ของแต่ละมิติ (ค่าฉบับประชากรไทย Pattanaphesaj 2018 / HITAP ตรวจตรงกับตารางครบ 3,125 สถานะ)
+// [เดิม:] (ค่าสัมประสิทธิ์ฉบับภาษาไทย: Pattanaphesaj J., Mahidol University; 2014)
 // ที่นี่เป็นช่องบันทึก "ระดับ" ที่คนไข้ตอบ ไม่ใช่ตัวแบบสอบถาม — ถ้อยคำของแบบสอบถามเป็นลิขสิทธิ์ของ EuroQol Group
 const REC_EQ5D = [
-  ['mo', 'การเคลื่อนไหว', [0, 0.056, 0.114, 0.231, 0.307]],
-  ['sc', 'การดูแลตนเอง', [0, 0.033, 0.108, 0.225, 0.254]],
-  ['ua', 'กิจกรรมที่ทำเป็นประจำ', [0, 0.043, 0.075, 0.165, 0.207]],
-  ['pd', 'อาการเจ็บปวด/ไม่สบายตัว', [0, 0.040, 0.068, 0.233, 0.266]],
-  ['ad', 'ความวิตกกังวล/ซึมเศร้า', [0, 0.032, 0.097, 0.202, 0.249]]
+  ['mo', 'การเคลื่อนไหว', [0, 0.066127, 0.0865629, 0.2109943, 0.3712311]],
+  ['sc', 'การดูแลตนเอง', [0, 0.0581293, 0.0706312, 0.1924905, 0.2498763]],
+  ['ua', 'กิจกรรมที่ทำเป็นประจำ', [0, 0.0582544, 0.0711974, 0.1534855, 0.248331]],
+  ['pd', 'อาการเจ็บปวด/ไม่สบายตัว', [0, 0.0563998, 0.0664922, 0.2068864, 0.2564331]],
+  ['ad', 'ความวิตกกังวล/ซึมเศร้า', [0, 0.0580857, 0.0957539, 0.2327036, 0.2953493]]
 ];
 const REC_EQ5D_LEVELS = ['ไม่มีปัญหา', 'เล็กน้อย', 'ปานกลาง', 'มาก', 'มากที่สุด'];
 // Barthel ADL index (แบบประเมินคัดกรอง 10 ข้อ รวม 0-20 คะแนน): ลำดับตัวเลือก = คะแนน 0, 1, 2, ...
@@ -142,8 +143,8 @@ function recScoreItems_() {
         <summary><b>EQ-5D-5L</b><span class="rec-details-sum" id="recEq5dSum"></span></summary>
         <div class="rec-grid">
         ${REC_EQ5D.map(d => rWide(rRow(esc_(d[1]), rOpts('pt_eq5d_' + d[0], d[1], REC_EQ5D_LEVELS.map((t, i) => [i + 1, t]))))).join('')}
-        ${rRow('สุขภาพวันนี้ (VAS)', `<input type="number" data-k="pt_eq5d_vas" class="s" min="0" max="100" step="1" inputmode="numeric" aria-label="สุขภาพวันนี้ VAS 0 ถึง 100">`, rTx('0 = แย่ที่สุด · 100 = ดีที่สุด'))}
-        ${rRow('คะแนนอรรถประโยชน์', `<input type="number" data-k="pt_eq5d" class="s" min="-1" max="1" step="0.001" inputmode="decimal" aria-label="คะแนนอรรถประโยชน์ EQ-5D">`, rTx('คำนวณให้เองเมื่อติ๊กครบ 5 มิติ'))}
+        ${rRow('ข้อ 6 สุขภาพวันนี้ (VAS)', `<input type="number" data-k="pt_eq5d_vas" class="s" min="0" max="100" step="1" inputmode="numeric" aria-label="สุขภาพวันนี้ VAS 0 ถึง 100">`, rTx('0 = แย่ที่สุด · 100 = ดีที่สุด'))}
+        ${rRow('คะแนนอรรถประโยชน์', `<input type="number" data-k="pt_eq5d" class="s" min="-1" max="1" step="0.0001" inputmode="decimal" readonly tabindex="-1" aria-label="คะแนนอรรถประโยชน์ EQ-5D (คำนวณอัตโนมัติ)">`, rTx('คำนวณให้เองจากข้อ 1-5 (ฉบับประชากรไทย) · -0.4212 = แย่ที่สุด, 1 = สมบูรณ์ที่สุด · ไม่ต้องกรอก'))}
         </div>
       </details>` },
     { id: 'barthel', label: 'Barthel ADL', group: groupOf('barthel', 'Functional Questionnaire test'), block: true, html: `
@@ -182,6 +183,11 @@ function recBarthelTotal_() {
   const raw = (el.value || '').trim(), n = Number(raw);
   return raw !== '' && isFinite(n) && n >= 0 && n <= 20 ? n : null;
 }
+/** คะแนนอรรถประโยชน์ EQ-5D-5L (ไทย) = 1 - ผลรวมค่าสัมประสิทธิ์ของแต่ละมิติ ปัดเป็น 4 ตำแหน่ง ช่วง -0.4212 ถึง 1 (VAS ไม่นำมาคำนวณ) */
+function recEq5dUtility_(lv) {
+  const sum = REC_EQ5D.reduce((t, d, i) => t + Math.round(d[2][lv[i] - 1] * 1e7), 0); // คิดเป็นจำนวนเต็มกันเลขทศนิยมคลาดเคลื่อน
+  return Math.round((1e7 - sum) / 1e3) / 1e4;
+}
 /** คำนวณคะแนนของ EQ-5D-5L และ Barthel ADL จากข้อที่ติ๊ก แล้วแสดงผลที่หัวบล็อก */
 function recScores_() {
   const lv = REC_EQ5D.map(d => recPicked_('pt_eq5d_' + d[0]));
@@ -190,8 +196,8 @@ function recScores_() {
   if (!eqSum) return;
   let util = null;
   if (eqDone === REC_EQ5D.length) {
-    util = Math.round((1 - REC_EQ5D.reduce((sum, d, i) => sum + d[2][lv[i] - 1], 0)) * 1000) / 1000;
-    eqSum.textContent = `สถานะสุขภาพ ${lv.join('')} · อรรถประโยชน์ ${util.toFixed(3)}`;
+    util = recEq5dUtility_(lv);
+    eqSum.textContent = `สถานะสุขภาพ ${lv.join('')} · อรรถประโยชน์ ${util.toFixed(4)}`;
   } else {
     eqSum.textContent = eqDone ? `ตอบแล้ว ${eqDone} / ${REC_EQ5D.length} มิติ` : 'ยังไม่ได้ประเมิน';
   }
