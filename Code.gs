@@ -2126,7 +2126,7 @@ function getOutcomes_(payload, auth) {
 
   const out = empty, seen = {}, rest = [], func = [], eq = [], pairs = [], procs = {}, mdx = {}, ptdx = {}, waits = [];
   const tally = {};
-  tests.forEach(t => { tally[t.key] = { key: t.key, name: t.name, unit: t.unit, tested: 0, below: 0, noCriterion: 0 }; });
+  tests.forEach(t => { tally[t.key] = { key: t.key, name: t.name, unit: t.unit, tested: 0, below: 0, noCriterion: 0, sum: 0, min: null, max: null }; });
   const allRows = recRows_(SHEET_RECORDS);
   const dxOf = {}; // การวินิจฉัยของ session (Progress note ใช้ของแบบแรกรับ)
   allRows.forEach(r => {
@@ -2167,6 +2167,9 @@ function getOutcomes_(payload, auth) {
       if (v === null) return;
       const below = assessBelow_(t, v, age, ex.sex, norms);
       tally[t.key].tested++;
+      tally[t.key].sum += v;
+      if (tally[t.key].min === null || v < tally[t.key].min) tally[t.key].min = v;
+      if (tally[t.key].max === null || v > tally[t.key].max) tally[t.key].max = v;
       if (below === null) tally[t.key].noCriterion++;
       else if (below) tally[t.key].below++;
     });
@@ -2191,7 +2194,7 @@ function getOutcomes_(payload, auth) {
     pairs.forEach(x => { (byGroup[x.group] = byGroup[x.group] || []).push(x); });
     out.pain = { all: painOf('ทั้งหมด', pairs), groups: Object.keys(byGroup).map(g => painOf(g.slice(0, 60), byGroup[g])).sort((x, y) => (y.n - x.n) || (x.name < y.name ? -1 : 1)).slice(0, 6) };
   }
-  out.tests = tests.map(t => tally[t.key]).filter(t => t.tested > 0);
+  out.tests = tests.map(t => tally[t.key]).filter(t => t.tested > 0).map(t => Object.assign({}, t, { avg: Math.round(t.sum / t.tested * 100) / 100 })); // avg/min/max ของทุกค่าที่ทดสอบ (ไม่แยกว่าต่ำกว่าเกณฑ์หรือไม่)
   // 5 อันดับการวินิจฉัย (จากแบบประเมินครั้งแรก) และหัตถการ (ทุกครั้งที่มารักษา) — n = จำนวนฉบับ, pct = ร้อยละของฉบับในกลุ่มนั้น
   const top = (map, total, limit) => Object.keys(map).map(k => ({ name: k.slice(0, 80), n: map[k], pct: total ? Math.round(map[k] / total * 1000) / 10 : null }))
     .sort((a, b) => (b.n - a.n) || (a.name < b.name ? -1 : 1)).slice(0, limit);
@@ -3028,11 +3031,11 @@ const HOME_VISIT_SHOW = [{ header: 'Depression', label: 'Depression' }, { header
 const AS_SAMPLE_ID = 'ตัวอย่าง';
 // ต้องตรงกับ REC_EQ5D / REC_BARTHEL ใน record.js
 const AS_EQ5D = [
-  ['mo', 'การเคลื่อนไหว', [0, 0.056, 0.114, 0.231, 0.307]],
-  ['sc', 'การดูแลตนเอง', [0, 0.033, 0.108, 0.225, 0.254]],
-  ['ua', 'กิจกรรมที่ทำเป็นประจำ', [0, 0.043, 0.075, 0.165, 0.207]],
-  ['pd', 'อาการเจ็บปวด/ไม่สบายตัว', [0, 0.040, 0.068, 0.233, 0.266]],
-  ['ad', 'ความวิตกกังวล/ซึมเศร้า', [0, 0.032, 0.097, 0.202, 0.249]]
+  ['mo', 'การเคลื่อนไหว', [0, 0.066127, 0.0865629, 0.2109943, 0.3712311]],
+  ['sc', 'การดูแลตนเอง', [0, 0.0581293, 0.0706312, 0.1924905, 0.2498763]],
+  ['ua', 'กิจกรรมที่ทำเป็นประจำ', [0, 0.0582544, 0.0711974, 0.1534855, 0.248331]],
+  ['pd', 'อาการเจ็บปวด/ไม่สบายตัว', [0, 0.0563998, 0.0664922, 0.2068864, 0.2564331]],
+  ['ad', 'ความวิตกกังวล/ซึมเศร้า', [0, 0.0580857, 0.0957539, 0.2327036, 0.2953493]]
 ];
 const AS_EQ5D_LEVELS = ['ไม่มีปัญหา', 'เล็กน้อย', 'ปานกลาง', 'มาก', 'มากที่สุด'];
 const AS_BARTHEL = [
@@ -3479,9 +3482,9 @@ function clinicAssessments_(ptn) {
     // คะแนนรวมของแบบประเมินที่ติ๊กครบทุกข้อ
     const eq = AS_EQ5D.map(d => data['pt_eq5d_' + d[0]]);
     if (eq.every(x => x !== undefined)) {
-      const util = Math.round((1 - AS_EQ5D.reduce((s, d, i) => s + d[2][Number(eq[i]) - 1], 0)) * 1000) / 1000;
+      const util = Math.round((1 - AS_EQ5D.reduce((s, d, i) => s + d[2][Number(eq[i]) - 1], 0)) * 10000) / 10000;
       data.pt_eq5d = String(util);
-      items.push({ label: 'EQ-5D-5L ' + eq.join(''), value: util.toFixed(3) });
+      items.push({ label: 'EQ-5D-5L ' + eq.join(''), value: util.toFixed(4) });
     } else if (eq.some(x => x !== undefined)) items.push({ label: 'EQ-5D-5L', value: 'ตอบ ' + eq.filter(x => x !== undefined).length + '/5 มิติ' });
     const ba = AS_BARTHEL.map((b, i) => data['pt_barthel_' + (i + 1)]);
     if (ba.every(x => x !== undefined)) {

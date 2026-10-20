@@ -665,6 +665,9 @@ function dashOutcomesHtml_(o) {
       <div class="tr">${judged ? `<i class="att" data-w="${(t.below / judged * 100).toFixed(1)}"></i>` : ''}</div>
       <span class="vl">${judged ? `${t.below}<small>จาก ${judged} ราย</small><em>${dashPct_(t.below, judged)}</em>` : `<small>ทดสอบ ${t.tested} ราย ยังไม่มีเกณฑ์</small>`}</span>`;
   }).join('');
+  const statRows = o.tests.slice().sort((x, y) => (x.name < y.name ? -1 : 1)).map(t => `<tr><td>${esc_(t.name)}</td><td>${esc_(t.unit || '')}</td><td class="num">${t.tested}</td><td class="num"><b>${Number(t.avg).toFixed(Number(t.avg) % 1 ? 1 : 0)}</b></td><td class="num">${t.max}</td><td class="num">${t.min}</td></tr>`).join('');
+  const statPanel = statRows ? `<div class="dsheet"><header><h3>ค่าเฉลี่ย สูงสุด ต่ำสุด ของแต่ละแบบทดสอบ</h3><p class="dsub">คิดจากทุกค่าที่ทดสอบในช่วงนี้ แยกจากตารางจำนวนรายที่ต่ำกว่าเกณฑ์ด้านบน (ค่าสูงหรือต่ำไม่ได้แปลว่าดีหรือแย่เสมอไป ขึ้นกับแบบทดสอบ เช่น เวลายิ่งน้อยยิ่งดี)</p></header>
+        <div class="dpad"><div class="table-scroll"><table class="mini-table"><thead><tr><th>แบบทดสอบ</th><th>หน่วย</th><th>ทดสอบ (ราย)</th><th>ค่าเฉลี่ย</th><th>สูงสุด</th><th>ต่ำสุด</th></tr></thead><tbody>${statRows}</tbody></table></div></div></div>` : '';
   const b = o.barthel, parts = [['ติดสังคม (12 ถึง 20 คะแนน)', b.social, '--d-s5'], ['ติดบ้าน (5 ถึง 11 คะแนน)', b.home, '--d-s3'], ['ติดเตียง (0 ถึง 4 คะแนน)', b.bed, '--d-s1']];
   return `${note}
     <div class="dsheet dsum dsum-3">
@@ -683,5 +686,6 @@ function dashOutcomesHtml_(o) {
         <div class="dkv">${parts.map(p => `<i style="background:var(${p[2]})"></i><span>${p[0]}</span><b>${p[1]} ราย<em>${dashPct_(p[1], b.n)}</em></b>`).join('')}</div>` : ''}
         <div class="dsplit"><div class="lb">คุณภาพชีวิตเฉลี่ย EQ-5D-5L</div>${fig(o.eq5d.avg, o.eq5d.n, 'จากเต็ม 1.00', 2)}</div>
       </div></div>
-    </div>`;
+    </div>
+    ${statPanel}`;
 }
