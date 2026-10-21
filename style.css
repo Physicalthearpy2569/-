@@ -1527,3 +1527,15 @@ label {
 
 .rec-wait { align-self: center; font-size: 14px; font-weight: 600; color: var(--teal-dark); margin-bottom: 8px; }
 .rec-wait.bad { color: var(--danger); }
+
+/* ---------------- สิทธิ์การรักษา ---------------- */
+.right-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+.right-chip { border: 1px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 999px; padding: 8px 14px; font-size: 15px; font-weight: 600; cursor: pointer; }
+.right-chip.on { background: var(--teal-dark, #14705a); border-color: var(--teal-dark, #14705a); color: #fff; }
+.rights-editor { display: flex; flex-direction: column; gap: 8px; }
+.rights-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.rights-row input[type="text"] { flex: 1 1 180px; min-width: 0; }
+.rights-row input[type="number"] { width: 120px; }
+.rights-row label { display: flex; align-items: center; gap: 6px; font-size: 15px; }
+.rights-row .rm { color: var(--danger); font-weight: 600; }
+.fin-total { font-weight: 700; }

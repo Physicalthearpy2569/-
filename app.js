@@ -15,6 +15,7 @@ const state = {
   clinicTypes: [],
   icd10Codes: [],
   icd9Codes: [],
+  rights: [],            // สิทธิ์การรักษา [{name, rate, active}]
   currentApptDetailId: null,
   settingsLoaded: false,
   patients: [],          // ทะเบียนคนไข้ (PTN) ใช้ค้นหา/เติมข้อมูลคนไข้เดิมในฟอร์มนัด
@@ -1228,6 +1229,7 @@ function openApptModal(startTime) {
 
   renderIcdSlots_('apptIcd10Slots', state.icd10Codes, 2, []);
   renderIcdSlots_('apptIcd9Slots', state.icd9Codes, 6, []);
+  renderApptRights_('');
 
   apptModal.classList.remove('hidden');
   apptModalBackdrop.classList.remove('hidden');
@@ -1357,6 +1359,7 @@ function pickPatient_(p) {
   document.getElementById('apptMoo').value = p.moo || '';
   document.getElementById('apptPhone').value = p.phone || '';
   document.getElementById('apptNationalId').value = String(p.nationalId || '').replace(/\D/g, '');
+  renderApptRights_(p.right || '');
   renderPatientSuggest_([]);
   renderPatientStatus_();
   loadPatientSummary_(p);
@@ -1530,10 +1533,57 @@ function updatePatientSuggest_() {
 /* ---------------- รหัส ICD-10 / ICD-9 (ใช้ร่วมกันทั้งตอนทำนัดและตอนแก้ไข) ---------------- */
 
 async function refreshIcdCodes() {
-  const [r10, r9] = await Promise.all([api('getIcd10Codes'), api('getIcd9Codes')]);
+  const [r10, r9, rr] = await Promise.all([api('getIcd10Codes'), api('getIcd9Codes'), api('getRights')]);
   if (r10.ok) state.icd10Codes = r10.data;
   if (r9.ok) state.icd9Codes = r9.data;
+  if (rr.ok) state.rights = rr.data; // หลังบ้านรุ่นเก่ายังไม่มี getRights = ไม่แสดงปุ่มสิทธิ์
 }
+
+/* ---------------- สิทธิ์การรักษา: ปุ่มในฟอร์มนัด + ตัวแก้ไขในหน้าตั้งค่า ---------------- */
+function renderApptRights_(selected) {
+  const box = document.getElementById('apptRights'), inp = document.getElementById('apptRight');
+  if (!box || !inp) return;
+  const names = state.rights.filter(r => r.active).map(r => r.name);
+  if (selected && names.indexOf(selected) === -1) names.push(selected); // สิทธิ์ที่ปิดใช้งานแล้วแต่คนไข้คนนี้ยังใช้อยู่
+  inp.value = selected || '';
+  box.previousElementSibling.classList.toggle('hidden', !names.length);
+  box.innerHTML = names.map(n => `<button type="button" class="right-chip${n === selected ? ' on' : ''}" data-r="${esc_(n)}" aria-pressed="${n === selected}">${esc_(n)}</button>`).join('');
+  box.querySelectorAll('.right-chip').forEach(b => b.addEventListener('click', () => {
+    renderApptRights_(inp.value === b.dataset.r ? '' : b.dataset.r); // กดซ้ำ = เลิกเลือก
+  }));
+}
+function renderRightsEditor_() {
+  const host = document.getElementById('rightsEditor');
+  if (!host) return;
+  host.innerHTML = '';
+  state.rights.forEach(r => host.appendChild(rightsRow_(r)));
+}
+function rightsRow_(r) {
+  const row = document.createElement('div');
+  row.className = 'rights-row';
+  row.innerHTML = `<input type="text" class="rt-name" maxlength="60" placeholder="ชื่อสิทธิ์" value="${esc_(r.name)}" aria-label="ชื่อสิทธิ์">
+    <input type="number" class="rt-rate" min="0" step="any" placeholder="บาท/ครั้ง" value="${r.rate || ''}" aria-label="รายรับต่อครั้ง (บาท)">
+    <label><input type="checkbox" class="rt-on"${r.active === false ? '' : ' checked'}> ใช้งาน</label>
+    <button type="button" class="rm">ลบ</button>`;
+  row.querySelector('.rm').addEventListener('click', () => row.remove());
+  return row;
+}
+document.getElementById('rightAddBtn')?.addEventListener('click', () => {
+  const row = rightsRow_({ name: '', rate: 0, active: true });
+  document.getElementById('rightsEditor').appendChild(row);
+  row.querySelector('.rt-name').focus();
+});
+document.getElementById('rightSaveBtn')?.addEventListener('click', async () => {
+  const rights = [...document.querySelectorAll('#rightsEditor .rights-row')].map(r => ({
+    name: r.querySelector('.rt-name').value.trim(),
+    rate: r.querySelector('.rt-rate').value,
+    active: r.querySelector('.rt-on').checked
+  })).filter(r => r.name);
+  const res = await api('saveRights', { rights });
+  if (!res.ok) { toast('บันทึกสิทธิ์ไม่สำเร็จ: ' + res.error); return; }
+  state.rights = res.data; renderRightsEditor_();
+  toast('บันทึกสิทธิ์แล้ว');
+});
 
 function autoCodeOf_(codeList) {
   const a = (codeList || []).find(c => c.isAuto === true);
@@ -1625,6 +1675,7 @@ document.getElementById('apptForm')?.addEventListener('submit', async (e) => {
     phone: document.getElementById('apptPhone').value.trim(),
     nationalId: document.getElementById('apptNationalId').value.trim(),
     note: document.getElementById('apptNote').value.trim(),
+    right: document.getElementById('apptRight').value || undefined, // ไม่เลือก = ไม่แตะสิทธิ์เดิมของคนไข้
     icd10: gatherIcdSlots_('apptIcd10Slots'),
     icd9: gatherIcdSlots_('apptIcd9Slots')
   });
@@ -1747,6 +1798,7 @@ async function loadSettings() {
   state.icd10Codes = d.icd10; renderIcdCodeList_('icd10List', d.icd10, 'removeIcd10Code', reloadIcd10_);
   state.icd9Codes = d.icd9; renderIcdCodeList_('icd9List', d.icd9, 'removeIcd9Code', reloadIcd9_);
   renderBusyRulesList(d.busyRules);
+  renderRightsEditor_();
 
   state.settingsLoaded = true;
   if (typeof recOptionsLoad_ === 'function') recOptionsLoad_(); // ตัวเลือกของดรอปดาวน์ในแบบฟอร์มเวชระเบียน (record.js)

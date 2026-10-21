@@ -6,7 +6,7 @@
 <title>ระบบนัดหมายผู้ป่วย รพ.สต.</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&family=IBM+Plex+Sans+Thai+Looped:wght@400;500;600;700&family=Noto+Sans+Thai:wght@400;600&family=Sarabun:wght@400;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=20261020b" />
+<link rel="stylesheet" href="style.css?v=20261020d" />
 </head>
 <body>
   <!-- ลายโกนิโอมิเตอร์ (เครื่องวัดมุมข้อ) ใช้เป็นพื้นหลังหัวเว็บและหน้าเข้าสู่ระบบ -->
@@ -342,6 +342,16 @@
           </form>
           <ul id="icd9List" class="tag-list"></ul>
         </div>
+
+        <div class="panel">
+          <h3>สิทธิ์การรักษาและรายรับต่อครั้ง</h3>
+          <p class="panel-hint">สิทธิ์เหล่านี้จะเป็นปุ่มให้กดตอนลงนัด/ออก PTN · ใส่ <strong>รายรับต่อครั้ง (บาท)</strong> ของแต่ละสิทธิ์ ระบบจะคูณกับจำนวนครั้งที่มารับบริการจริง แล้วสรุปในแท็บผลลัพธ์ (ใส่ 0 = ยังไม่คิดเงิน) · เพิ่มสิทธิ์เองได้ เช่น ไปราชการ</p>
+          <div id="rightsEditor" class="rights-editor"></div>
+          <div class="inline-form" style="margin-top:10px;">
+            <button type="button" class="secondary" id="rightAddBtn">+ เพิ่มสิทธิ์</button>
+            <button type="button" id="rightSaveBtn">บันทึกสิทธิ์</button>
+          </div>
+        </div>
       </section>
     </main>
   </div>
@@ -423,6 +433,9 @@
       <label>หมายเหตุ
         <input type="text" id="apptNote" />
       </label>
+      <div class="section-label" style="margin-top:14px;">สิทธิ์การรักษา</div>
+      <div id="apptRights" class="right-chips" role="group" aria-label="สิทธิ์การรักษา"></div>
+      <input type="hidden" id="apptRight" />
       <div class="section-label" style="margin-top:14px;">รหัส ICD-10</div>
       <div id="apptPrevIcd10" class="prev-icd hidden"></div>
       <div class="icd-slots" id="apptIcd10Slots"></div>
@@ -580,9 +593,9 @@
     </div>
   </div>
 
-  <script src="app.js?v=20261020b"></script>
-  <script src="record.js?v=20261020b"></script>
-  <script src="progress.js?v=20261020b"></script>
-  <script src="dashboard.js?v=20261020b"></script>
+  <script src="app.js?v=20261020d"></script>
+  <script src="record.js?v=20261020d"></script>
+  <script src="progress.js?v=20261020d"></script>
+  <script src="dashboard.js?v=20261020d"></script>
 </body>
 </html>

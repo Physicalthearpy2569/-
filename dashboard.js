@@ -628,6 +628,18 @@ async function dashLoadOutcomes_() {
   host.className = '';
   host.innerHTML = dashOutcomesHtml_(res.data);
   if (DASH.tab === 'out') dashAnimate_(host.closest('.dpanel'));
+  dashLoadFinance_(d, host, req);
+}
+/** รายรับแยกสิทธิ์การรักษา (นับจากนัดที่กด "มาแล้ว" ในช่วงที่เลือก) — หลังบ้านรุ่นเก่าไม่มี = ไม่แสดง */
+async function dashLoadFinance_(d, host, req) {
+  const res = await api('getFinance', { from: d.from, to: d.to });
+  if (req !== DASH.outReq || !res.ok || !document.body.contains(host)) return;
+  const f = res.data, baht = v => Number(v).toLocaleString('th-TH', { maximumFractionDigits: 2 });
+  const rows = f.rights.filter(g => g.visits || g.rate).map(g => `<tr><td>${esc_(g.name)}</td><td>${g.patients}</td><td>${g.visits}</td><td>${g.rate ? baht(g.rate) : '-'}</td><td>${g.rate ? baht(g.revenue) : '-'}</td></tr>`).join('');
+  const html = `<div class="dsheet"><header><h3>รายรับแยกสิทธิ์การรักษา</h3><p class="dsub">นับจากนัดที่กด "มาแล้ว" ในช่วงนี้ รายรับ = จำนวนครั้ง × รายรับต่อครั้งที่ตั้งไว้ในหน้าตั้งค่า</p></header>
+    <div class="dpad">${f.visits ? `<div class="table-scroll"><table class="mini-table"><thead><tr><th>สิทธิ์</th><th>ผู้ป่วย (ราย)</th><th>ครั้งที่มา</th><th>บาท/ครั้ง</th><th>รายรับ (บาท)</th></tr></thead><tbody>${rows}</tbody>
+      <tfoot><tr class="fin-total"><td>รวม</td><td></td><td>${f.visits}</td><td></td><td>${baht(f.revenue)}</td></tr></tfoot></table></div>${f.unset ? '<div class="note">มีสิทธิ์ที่ยังไม่ได้ตั้งรายรับต่อครั้ง หรือคนไข้ที่ยังไม่ระบุสิทธิ์ — ไม่ถูกนับเป็นรายรับ</div>' : ''}` : '<div class="dash-empty">ช่วงนี้ยังไม่มีนัดที่กด "มาแล้ว"</div>'}</div></div>`;
+  host.insertAdjacentHTML('beforeend', html);
 }
 /** 5 อันดับการวินิจฉัย และหัตถการที่ให้บ่อย (หลังบ้านรุ่นก่อน 2026-10-16a ไม่ส่งมา = ไม่แสดง) */
 function dashDxProcHtml_(o) {
